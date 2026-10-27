@@ -68,6 +68,9 @@ button:focus-visible,button.kb:focus,input:focus,select:focus{outline:4px solid 
 @media (prefers-reduced-motion:reduce){.pop{animation-duration:.01s}}
 .tname{font-family:var(--f-label);font-weight:900;text-transform:uppercase;letter-spacing:.06em;
   font-size:clamp(18px,4.2vh,46px);max-width:100%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.tside{font-family:var(--f-label);font-weight:700;letter-spacing:.14em;text-transform:uppercase;color:var(--muted);
+  font-size:clamp(12px,2.2vh,22px);margin-top:-1vh}
+.tside.off{visibility:hidden}
 .score{font-weight:700;font-variant-numeric:tabular-nums;line-height:.9;font-size:clamp(56px,20vh,220px)}
 .pts{display:grid;grid-template-columns:repeat(4,1fr);gap:6px;width:100%;max-width:22vw;min-width:180px}
 .pt{background:var(--panel);border:2px solid var(--line);border-radius:6px;font-weight:700;
@@ -209,6 +212,7 @@ body.timer .glabel{font-size:clamp(16px,3.4vh,34px)}
   <section class="scoreline">
     <div class="team" data-t="0">
       <div class="tname" id="n0">Home</div>
+      <div class="tside off" id="ts0">(Home)</div>
       <div class="score" id="s0">0</div>
       <div class="pts">
         <button class="pt" data-add="1">+1</button><button class="pt" data-add="2">+2</button>
@@ -227,6 +231,7 @@ body.timer .glabel{font-size:clamp(16px,3.4vh,34px)}
 
     <div class="team" data-t="1">
       <div class="tname" id="n1">Away</div>
+      <div class="tside off" id="ts1">(Away)</div>
       <div class="score" id="s1">0</div>
       <div class="pts">
         <button class="pt" data-add="1">+1</button><button class="pt" data-add="2">+2</button>
@@ -779,6 +784,8 @@ function render(){
 
   put('s0',String(st.score[0]));put('s1',String(st.score[1]));
   put('n0',cfg.names[0]);put('n1',cfg.names[1]);
+  /* a renamed side still shows which team the voice calls it */
+  $('ts0').classList.toggle('off',cfg.names[0].toLowerCase()==='home');$('ts1').classList.toggle('off',cfg.names[1].toLowerCase()==='away');
   put('bPlay',st.phase==='final'?'Play again':(st.running?'Pause':(st.started||st.phase==='break'?'Resume':'Start')));
   $('bShot').disabled=!(SHOT()>0&&st.phase==='game');
   $('bNext').disabled=st.phase==='final';
