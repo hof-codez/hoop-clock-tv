@@ -944,18 +944,25 @@ function move(key){
   const els=focusables();const cur=document.activeElement;
   if(!els.includes(cur)){(els.includes($('bPlay'))?$('bPlay'):els[0]).focus();return;}
   const r=cur.getBoundingClientRect();const cx=r.left+r.width/2,cy=r.top+r.height/2;
-  let best=null,bd=Infinity;
+  const horiz=key==='ArrowRight'||key==='ArrowLeft';
+  /* Pass 1: only buttons that share the current row (or column), nearest first.
+     Pass 2: anything in that direction, weighted toward staying in line. */
+  let best=null,bd=Infinity,bestLoose=null,bdLoose=Infinity;
   for(const el of els){
     if(el===cur)continue;
-    const b=el.getBoundingClientRect();const dx=b.left+b.width/2-cx,dy=b.top+b.height/2-cy;
-    let main,cross;
-    if(key==='ArrowRight'){if(dx<=4)continue;main=dx;cross=Math.abs(dy);}
-    else if(key==='ArrowLeft'){if(dx>=-4)continue;main=-dx;cross=Math.abs(dy);}
-    else if(key==='ArrowDown'){if(dy<=4)continue;main=dy;cross=Math.abs(dx);}
-    else {if(dy>=-4)continue;main=-dy;cross=Math.abs(dx);}
-    const d=main+cross*2.5;
-    if(d<bd){bd=d;best=el;}
+    const b=el.getBoundingClientRect();
+    const dx=b.left+b.width/2-cx,dy=b.top+b.height/2-cy;
+    let main,cross,overlap;
+    if(key==='ArrowRight'){if(b.left<r.right-4&&dx<=4)continue;if(dx<=4)continue;main=Math.max(0,b.left-r.right);cross=Math.abs(dy);}
+    else if(key==='ArrowLeft'){if(dx>=-4)continue;main=Math.max(0,r.left-b.right);cross=Math.abs(dy);}
+    else if(key==='ArrowDown'){if(dy<=4)continue;main=Math.max(0,b.top-r.bottom);cross=Math.abs(dx);}
+    else {if(dy>=-4)continue;main=Math.max(0,r.top-b.bottom);cross=Math.abs(dx);}
+    if(horiz)overlap=Math.min(r.bottom,b.bottom)-Math.max(r.top,b.top);
+    else overlap=Math.min(r.right,b.right)-Math.max(r.left,b.left);
+    if(overlap>4){const d=main+cross*0.1;if(d<bd){bd=d;best=el;}}
+    const dl=main+cross*2.5;if(dl<bdLoose){bdLoose=dl;bestLoose=el;}
   }
+  if(!best&&!horiz)best=bestLoose;
   if(best){best.classList.add('kb');best.focus();try{best.scrollIntoView({block:'nearest'});}catch(e){}}
 }
 document.addEventListener('keydown',e=>{
