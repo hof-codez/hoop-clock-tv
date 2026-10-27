@@ -126,13 +126,27 @@ button:focus-visible,button.kb:focus,input:focus,select:focus{outline:4px solid 
 
 /* mode picker */
 .modes{position:fixed;inset:0;background:var(--bg);z-index:6;overflow-y:auto;
-  display:flex;flex-direction:column;align-items:center;justify-content:safe center;gap:3vh;
+  display:flex;flex-direction:column;align-items:center;justify-content:safe center;gap:2.2vh;
   padding-block:calc(4vh + env(safe-area-inset-top,0px)) calc(4vh + env(safe-area-inset-bottom,0px));
   padding-left:max(16px, env(safe-area-inset-left, 0px));
   padding-right:max(16px, env(safe-area-inset-right, 0px))}
 .modes h1{margin:0;font-family:var(--f-label);font-weight:900;text-transform:uppercase;letter-spacing:.05em;
-  font-size:clamp(28px,6.5vh,70px);text-align:center;text-wrap:balance}
+  font-size:clamp(26px,6vh,64px);line-height:1;text-align:center;text-wrap:balance}
 .modes h1 span{color:var(--ball)}
+.brand{display:flex;flex-direction:column;align-items:center;gap:.6vh}
+.brand-lock{display:flex;align-items:center;gap:12px}
+.brand-mark{width:clamp(30px,6vh,58px);height:auto;flex:none}
+.brand-name{font-family:var(--f-label);font-weight:900;letter-spacing:.22em;font-size:clamp(14px,2.8vh,28px);color:var(--fg)}
+.brand-name b{color:var(--ball);font-weight:900}
+.brand-sub{font-family:var(--f-label);font-weight:700;letter-spacing:.3em;text-transform:uppercase;color:var(--muted);font-size:clamp(11px,1.9vh,18px)}
+.prow .pname{font-weight:700;font-size:clamp(18px,3.4vh,32px);min-width:5.5ch;max-width:10ch;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;color:var(--fg)}
+.chip.add{border-style:dashed;color:var(--muted)}
+.pin{background:var(--bg);color:var(--fg);border:2px solid var(--focus);border-radius:999px;font:inherit;font-weight:700;
+  font-size:clamp(14px,2.5vh,24px);padding:.15em .8em;width:10ch;min-width:0}
+.saved{display:flex;flex-wrap:wrap;gap:8px}
+.saved .chip{display:inline-flex;align-items:center;gap:.4em}
+.modes .brand-foot{color:var(--muted);font-size:clamp(11px,1.7vh,16px);letter-spacing:.08em}
+.modes .brand-foot b{color:var(--fg);font-weight:700}
 .mode-row{display:grid;grid-template-columns:1fr 1fr;gap:3vw;width:100%;max-width:1150px}
 .mode{background:var(--panel);border:3px solid var(--line);border-radius:12px;padding:3.5vh 2.5vw;
   text-align:left;display:flex;flex-direction:column;gap:1.4vh;min-width:0}
@@ -231,7 +245,19 @@ body.timer .glabel{font-size:clamp(16px,3.4vh,34px)}
 </main>
 
 <section class="modes" id="modes">
-  <h1>Game <span>setup</span></h1>
+  <div class="brand">
+    <div class="brand-lock" aria-label="HofCodez">
+      <svg class="brand-mark" viewBox="0 0 64 64" aria-hidden="true">
+        <circle cx="32" cy="32" r="29" fill="var(--ball)"/>
+        <path d="M32 3v58M3 32h58M12 11c9 8 9 34 0 42M52 11c-9 8-9 34 0 42" fill="none" stroke="var(--bg)" stroke-width="3.2" stroke-linecap="round"/>
+        <rect x="14" y="23" width="36" height="18" rx="9" fill="var(--bg)"/>
+        <path d="M24 27l-5 5 5 5M40 27l5 5-5 5M34.5 26l-5 12" fill="none" stroke="var(--ball)" stroke-width="2.8" stroke-linecap="round" stroke-linejoin="round"/>
+      </svg>
+      <span class="brand-name">HOF<b>CODEZ</b></span>
+    </div>
+    <h1>Hoop <span>Clock</span></h1>
+    <span class="brand-sub">Game setup</span>
+  </div>
   <div class="quick">
     <div class="qrow">
       <span class="qlbl">Quarter length</span>
@@ -254,12 +280,24 @@ body.timer .glabel{font-size:clamp(16px,3.4vh,34px)}
       <button class="sb" id="qsPlus" aria-label="Longer shot clock">+</button>
       <span class="qunit" id="qsUnit">sec</span>
     </div>
+    <div class="qrow prow" data-side="0">
+      <span class="qlbl">Left player</span>
+      <span class="pname" id="pn0">Home</span>
+      <div class="chips" id="pc0"></div>
+    </div>
+    <div class="qrow prow" data-side="1">
+      <span class="qlbl">Right player</span>
+      <span class="pname" id="pn1">Away</span>
+      <div class="chips" id="pc1"></div>
+    </div>
   </div>
   <div class="modes-foot">
     <button class="ctl primary start-big" id="mGame">Start game</button>
     <button class="ctl" id="bBack" hidden>Back to game</button>
+    <button class="ctl" id="bExit" hidden>Exit app</button>
   </div>
   <div class="hint">Arrows move, OK picks. Start game resets the score.</div>
+  <div class="brand-foot">Built by <b>HofCodez</b></div>
 </section>
 
 <section class="sheet" id="sheet" hidden>
@@ -298,7 +336,7 @@ const CALL_OPTS=[0,5,10];
 const COUNT_OPTS=[10,15,20,30];
 
 const DEF={quarters:4,lengths:[300,300,300,300,300,300],shot:24,brk:60,minuteCall:0,countFrom:20,
-  voice:true,voiceSrc:'clips',minuteDings:true,beeps:true,pauseOnShot:true,arrowScore:true,arrowPts:1,shotOn:true,cfgv:2,names:['Home','Away'],
+  voice:true,voiceSrc:'clips',minuteDings:true,beeps:true,pauseOnShot:true,arrowScore:true,arrowPts:1,shotOn:true,cfgv:2,names:['Home','Away'],nameHist:['Home','Away'],
   binds:{p0a:{s:'k:1',l:'1'},p0b:{s:'k:2',l:'2'},p0c:{s:'k:3',l:'3'},p1a:{s:'k:7',l:'7'},p1b:{s:'k:8',l:'8'},p1c:{s:'k:9',l:'9'},
     play:{s:'k:5',l:'5'},shot:{s:'k:0',l:'0'},undo:{s:'k:-',l:'-'}}};
 let cfg=load();
@@ -308,7 +346,7 @@ function load(){
     /* settings from older versions: scoring now counts by 1s, and "Off" moved to its own switch */
     if(c.cfgv!==2){c.arrowPts=1;c.cfgv=2;}
     if(c.shot===0){c.shotOn=false;c.shot=24;}
-    return Object.assign({},DEF,c,{lengths:(c.lengths||DEF.lengths).concat(DEF.lengths).slice(0,6),names:c.names||DEF.names,binds:JSON.parse(JSON.stringify(c.binds||DEF.binds))});}}catch(e){}
+    return Object.assign({},DEF,c,{lengths:(c.lengths||DEF.lengths).concat(DEF.lengths).slice(0,6),names:c.names||DEF.names,nameHist:(c.nameHist||DEF.nameHist).slice(),binds:JSON.parse(JSON.stringify(c.binds||DEF.binds))});}}catch(e){}
   return JSON.parse(JSON.stringify(DEF));
 }
 function save(){try{localStorage.setItem('hoopclock.cfg',JSON.stringify(cfg));}catch(e){}}
@@ -723,8 +761,12 @@ function buildSetup(){
     r.innerHTML='<label class="lbl" for="name'+i+'">'+lab+'</label><input id="name'+i+'" maxlength="12" value="">';
     const inp=r.querySelector('input');inp.value=cfg.names[i];
     inp.oninput=()=>{cfg.names[i]=inp.value.trim()||DEF.names[i];save();render();};
+    inp.onchange=()=>{rememberName(cfg.names[i]);buildSaved();};
     gn.appendChild(r);
   });
+  const sv=document.createElement('div');sv.className='row';sv.style.alignItems='flex-start';
+  sv.innerHTML='<span class="lbl">Saved names</span><div class="saved" id="savedNames"></div>';
+  gn.appendChild(sv);buildSaved();
   buildPads();
   updateVoiceNote();
 }
@@ -930,8 +972,57 @@ $('qsTog').onclick=()=>{cfg.shotOn=!cfg.shotOn;quickChanged();};
 $('qsMinus').onclick=()=>{cfg.shotOn=true;cfg.shot=cycle(SHOT_OPTS,cfg.shot,-1);quickChanged();};
 $('qsPlus').onclick=()=>{cfg.shotOn=true;cfg.shot=cycle(SHOT_OPTS,cfg.shot,1);quickChanged();};
 
+/* ---------- player names ---------- */
+let nameEditing=null;
+function rememberName(n){
+  n=(n||'').trim();if(!n)return;
+  cfg.nameHist=[n].concat(cfg.nameHist.filter(x=>x.toLowerCase()!==n.toLowerCase())).slice(0,12);save();
+}
+function setName(side,n){
+  const other=1-side;
+  if(cfg.names[other].toLowerCase()===n.toLowerCase())cfg.names[other]=cfg.names[side];
+  cfg.names[side]=n;rememberName(n);save();render();updateHint();
+}
+function renderPlayers(){
+  [0,1].forEach(side=>{
+    $('pn'+side).textContent=cfg.names[side];
+    const box=$('pc'+side);box.innerHTML='';
+    cfg.nameHist.filter(n=>n.toLowerCase()!==cfg.names[side].toLowerCase()).slice(0,6).forEach(n=>{
+      const b=document.createElement('button');b.className='chip';b.textContent=n;
+      b.onclick=()=>{setName(side,n);renderPlayers();const f=$('pn'+side).parentNode.querySelector('.chip');if(f)f.focus();};
+      box.appendChild(b);
+    });
+    if(nameEditing===side){
+      const inp=document.createElement('input');inp.className='pin';inp.id='pin'+side;inp.maxLength=12;inp.placeholder='Type a name';
+      inp.setAttribute('aria-label','New name for the '+(side?'right':'left')+' player');
+      const commit=()=>{const v=inp.value.trim();nameEditing=null;if(v)setName(side,v);renderPlayers();const a=$('pa'+side);if(a)a.focus();};
+      inp.addEventListener('keydown',e=>{if(e.key==='Enter'){e.preventDefault();commit();}else if(e.key==='Escape'){e.preventDefault();nameEditing=null;renderPlayers();const a=$('pa'+side);if(a)a.focus();}});
+      inp.addEventListener('blur',()=>{if(nameEditing===side)setTimeout(()=>{if(nameEditing===side)commit();},150);});
+      box.appendChild(inp);inp.focus();
+    }else{
+      const a=document.createElement('button');a.className='chip add';a.id='pa'+side;a.textContent='+ New name';
+      a.onclick=()=>{nameEditing=side;renderPlayers();};
+      box.appendChild(a);
+    }
+  });
+}
+function buildSaved(){
+  const box=$('savedNames');if(!box)return;box.innerHTML='';
+  cfg.nameHist.forEach(n=>{
+    const b=document.createElement('button');b.className='chip';b.innerHTML='';b.textContent=n+'  ×';
+    b.setAttribute('aria-label','Remove '+n);
+    b.onclick=()=>{cfg.nameHist=cfg.nameHist.filter(x=>x!==n);if(!cfg.nameHist.length)cfg.nameHist=DEF.nameHist.slice();save();buildSaved();
+      const f=box.querySelector('.chip');if(f)f.focus();};
+    box.appendChild(b);
+  });
+}
+
+/* ---------- exit (TV app only) ---------- */
+const IN_APP=!!(window.HoopApp&&window.HoopApp.exit);
+if(IN_APP){$('bExit').hidden=false;$('bExit').onclick=()=>{stopVoice();try{window.HoopApp.exit();}catch(e){}};}
+
 function openModes(){
-  renderQuick();
+  renderQuick();renderPlayers();
   if(st.running)toggle();
   $('bBack').hidden=!st.started;
   $('modes').hidden=false;
@@ -994,6 +1085,7 @@ document.addEventListener('keydown',()=>{const a=document.activeElement;if(a&&a.
 
 /* TV app Back button: close what is open, or show the mode picker. Returns false when there is nothing left to close. */
 window.hoopBack=function(){
+  if(nameEditing!==null){nameEditing=null;renderPlayers();return true;}
   if(learning){learning=null;buildPads();return true;}
   if(!$('sheet').hidden){closeSetup();return true;}
   if(!$('modes').hidden){if(!$('bBack').hidden){closeModes();return true;}return false;}

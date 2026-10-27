@@ -6,6 +6,7 @@ import android.os.Bundle;
 import android.view.KeyEvent;
 import android.view.View;
 import android.view.WindowManager;
+import android.webkit.JavascriptInterface;
 import android.webkit.WebChromeClient;
 import android.webkit.WebResourceError;
 import android.webkit.WebResourceRequest;
@@ -49,6 +50,8 @@ public class MainActivity extends Activity {
         s.setLoadWithOverviewMode(true);
         s.setUseWideViewPort(true);
 
+        // Lets the clock's Exit app button close the app.
+        web.addJavascriptInterface(new ExitBridge(), "HoopApp");
         web.setWebChromeClient(new WebChromeClient());
         web.setWebViewClient(new WebViewClient() {
             @Override
@@ -103,12 +106,19 @@ public class MainActivity extends Activity {
             if ("\"1\"".equals(value)) return;
             long now = System.currentTimeMillis();
             if (now - lastBackPress < 2000) {
-                finish();
+                finishAndRemoveTask();
             } else {
                 lastBackPress = now;
                 Toast.makeText(this, "Press Back again to exit", Toast.LENGTH_SHORT).show();
             }
         });
+    }
+
+    private class ExitBridge {
+        @JavascriptInterface
+        public void exit() {
+            runOnUiThread(MainActivity.this::finishAndRemoveTask);
+        }
     }
 
     @Override
