@@ -3,6 +3,7 @@ package com.hof.hoopclock;
 import android.app.Activity;
 import android.graphics.Color;
 import android.os.Bundle;
+import android.speech.tts.TextToSpeech;
 import android.view.KeyEvent;
 import android.view.View;
 import android.view.WindowManager;
@@ -14,6 +15,8 @@ import android.webkit.WebSettings;
 import android.webkit.WebView;
 import android.webkit.WebViewClient;
 import android.widget.Toast;
+
+import java.util.Locale;
 
 /**
  * Full-screen Hoop Clock for Android TV.
@@ -29,11 +32,21 @@ public class MainActivity extends Activity {
     private WebView web;
     private boolean usingLocal = false;
     private long lastBackPress = 0;
+    private TextToSpeech tts;
+    private volatile boolean ttsOk = false;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         getWindow().addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON);
+
+        // The TV's own speech engine, so the clock can say player names.
+        tts = new TextToSpeech(this, status -> {
+            if (status == TextToSpeech.SUCCESS) {
+                int r = tts.setLanguage(Locale.US);
+                ttsOk = r != TextToSpeech.LANG_MISSING_DATA && r != TextToSpeech.LANG_NOT_SUPPORTED;
+            }
+        });
 
         web = new WebView(this);
         web.setBackgroundColor(Color.rgb(16, 20, 26));
@@ -50,8 +63,8 @@ public class MainActivity extends Activity {
         s.setLoadWithOverviewMode(true);
         s.setUseWideViewPort(true);
 
-        // Lets the clock's Exit app button close the app.
-        web.addJavascriptInterface(new ExitBridge(), "HoopApp");
+        // Lets the clock close the app and use the TV's speech engine.
+        web.addJavascriptInterface(new AppBridge(), "HoopApp");
         web.setWebChromeClient(new WebChromeClient());
         web.setWebViewClient(new WebViewClient() {
             @Override
@@ -114,10 +127,27 @@ public class MainActivity extends Activity {
         });
     }
 
-    private class ExitBridge {
+    private class AppBridge {
         @JavascriptInterface
         public void exit() {
             runOnUiThread(MainActivity.this::finishAndRemoveTask);
+        }
+
+        @JavascriptInterface
+        public boolean ttsReady() {
+            return ttsOk;
+        }
+
+        @JavascriptInterface
+        public void speak(String text, float rate) {
+            if (!ttsOk || text == null) return;
+            tts.setSpeechRate(rate > 0 ? rate : 1.0f);
+            tts.speak(text, TextToSpeech.QUEUE_FLUSH, null, "hoop");
+        }
+
+        @JavascriptInterface
+        public void stop() {
+            if (tts != null) tts.stop();
         }
     }
 
@@ -142,6 +172,7 @@ public class MainActivity extends Activity {
 
     @Override
     protected void onDestroy() {
+        if (tts != null) tts.shutdown();
         web.destroy();
         super.onDestroy();
     }
