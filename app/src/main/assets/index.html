@@ -197,6 +197,35 @@ body.timer .glabel{font-size:clamp(16px,3.4vh,34px)}
 
 /* game history */
 #hist{z-index:7}
+#train{z-index:8}
+.wgrid{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+.wcard{display:flex;flex-direction:column;gap:6px;text-align:left;background:var(--panel);border:2px solid var(--line);border-radius:10px;padding:12px 16px;min-width:0}
+.wcard .wn{font-family:var(--f-label);font-weight:900;text-transform:uppercase;letter-spacing:.04em;font-size:clamp(20px,4vh,36px);line-height:1}
+.wcard .wd{color:var(--muted);font-size:clamp(13px,2.2vh,20px)}
+.wcard .wl{font-size:clamp(13px,2.2vh,20px);line-height:1.35}
+.wcard .wt{font-family:var(--f-label);font-weight:700;letter-spacing:.14em;color:var(--ball);font-size:clamp(12px,2vh,18px)}
+.lvl{display:flex;gap:8px;align-items:center;flex-wrap:wrap}
+.tr-top{display:flex;align-items:center;justify-content:space-between;gap:12px}
+.tr-top .tw{font-family:var(--f-label);font-weight:900;text-transform:uppercase;letter-spacing:.06em;font-size:clamp(18px,3.6vh,34px)}
+.tr-top .ts{color:var(--muted);font-weight:600;font-size:clamp(14px,2.4vh,22px)}
+.tr-bar{height:8px;background:var(--panel);border-radius:4px;overflow:hidden}
+.tr-bar i{display:block;height:100%;width:0;background:var(--ball);transition:width .3s linear}
+.tr-main{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1.3fr);gap:3vw;align-items:center}
+.tr-clock{display:flex;flex-direction:column;align-items:center}
+.tr-phase{font-family:var(--f-label);font-weight:900;letter-spacing:.2em;text-transform:uppercase;font-size:clamp(20px,5vh,46px)}
+.tr-phase.work{color:var(--ball)}.tr-phase.rest{color:var(--muted)}.tr-phase.prep{color:var(--focus)}.tr-phase.done{color:var(--ball)}
+.tr-time{font-weight:700;font-variant-numeric:tabular-nums;line-height:.9;font-size:min(22vw,34vh)}
+.tr-info{display:flex;flex-direction:column;gap:1.4vh;min-width:0}
+.tr-name{font-family:var(--f-label);font-weight:900;text-transform:uppercase;letter-spacing:.03em;font-size:clamp(24px,6vh,58px);line-height:1}
+.tr-ins{font-size:clamp(16px,3.2vh,30px);line-height:1.3}
+.tr-makes{font-family:var(--f-label);font-weight:700;letter-spacing:.14em;text-transform:uppercase;color:var(--muted);font-size:clamp(14px,2.6vh,24px)}
+.tr-makes b{color:var(--ball);font-family:var(--f-digit);font-size:1.8em;letter-spacing:0;margin-left:.3em}
+.tr-next{color:var(--muted);font-size:clamp(14px,2.4vh,22px)}
+.tr-next b{color:var(--fg)}
+.tr-ctl{display:flex;gap:12px;flex-wrap:wrap}
+.tr-sum{display:flex;flex-direction:column;gap:8px}
+@media (max-width:760px){.wgrid,.tr-main{grid-template-columns:1fr}}
+
 .hlist{display:flex;flex-direction:column;gap:10px}
 .hrow,.ev{display:grid;align-items:center;gap:14px;width:100%;text-align:left;background:var(--panel);
   border:2px solid var(--line);border-radius:8px;padding:10px 14px;font-size:clamp(15px,2.6vh,24px)}
@@ -325,11 +354,16 @@ body.timer .glabel{font-size:clamp(16px,3.4vh,34px)}
   <div class="modes-foot">
     <button class="ctl primary start-big" id="mGame">Start game</button>
     <button class="ctl" id="bBack" hidden>Back to game</button>
+    <button class="ctl" id="bTrain">Training</button>
     <button class="ctl" id="bHist">Game history</button>
     <button class="ctl" id="bExit" hidden>Exit app</button>
   </div>
   <div class="hint">Arrows move, OK picks. Start game resets the score.</div>
   <div class="brand-foot">Built by <b>HofCodez</b></div>
+</section>
+
+<section class="sheet" id="train" hidden>
+  <div class="sheet-in" id="trainIn"></div>
 </section>
 
 <section class="sheet" id="hist" hidden>
@@ -1046,6 +1080,7 @@ window.addEventListener('keydown',e=>{
   lastSeen=prettyKey(e);{const sn=$('seen');if(sn)sn.textContent=lastSeen;}
   const tag=(document.activeElement||{}).tagName;
   if(tag==='INPUT')return;
+  if(!$('train').hidden){if(tr&&tr.view==='run'&&trainKey(e)){e.preventDefault();e.stopImmediatePropagation();}return;}
   if(!$('modes').hidden)return;
   /* watch in cursor keys mode: arrows score only while the clock runs */
   const onBoard=$('sheet').hidden;
@@ -1105,6 +1140,228 @@ $('qcPlus').onclick=()=>{cfg.quarters=Math.min(6,cfg.quarters+1);quickChanged();
 $('qsTog').onclick=()=>{cfg.shotOn=!cfg.shotOn;quickChanged();};
 $('qsMinus').onclick=()=>{cfg.shotOn=true;cfg.shot=cycle(SHOT_OPTS,cfg.shot,-1);quickChanged();};
 $('qsPlus').onclick=()=>{cfg.shotOn=true;cfg.shot=cycle(SHOT_OPTS,cfg.shot,1);quickChanged();};
+
+/* ---------- training mode ---------- */
+const DRILLS={
+  pound:{n:'Pound dribble',i:'Pound the ball hard at your hip. Keep your eyes up.',sw:'Switch hands'},
+  cross:{n:'Low crossovers',i:'Cross the ball low from hand to hand. Keep it below your knees.'},
+  fig8:{n:'Figure eight',i:'Dribble in a figure eight around your legs. Stay low.'},
+  wraps:{n:'Ball wraps',i:'Wrap the ball around your waist, then your head, then your knees. Go fast without dropping it.',sw:'Switch directions'},
+  tips:{n:'Fingertip taps',i:'Tap the ball back and forth between your fingertips. Arms up high, then down low.'},
+  form:{n:'Form shooting',i:'Stand close to the hoop. One hand, elbow in, and hold your follow through.',makes:true},
+  mikan:{n:'Mikan drill',i:'Alternate layups on both sides of the rim. Keep the ball high.',makes:true},
+  catchshoot:{n:'Catch and shoot',i:'Toss the ball out, catch it on the hop, and shoot in one motion.',makes:true},
+  pumpdrive:{n:'Pump fake and drive',i:'Pump fake, take one hard dribble, and finish at the rim.',makes:true},
+  ft:{n:'Free throws',i:'Same routine every shot. Dribble, breathe, shoot. Hold your follow through.',makes:true},
+  slides:{n:'Defensive slides',i:'Get in a low stance and slide side to side. Do not cross your feet.'},
+  pivots:{n:'Jump stop and pivot',i:'Jump stop on two feet, then pivot forward and back. Keep your pivot foot down.',sw:'Switch pivot foot'},
+  wallpass:{n:'Wall passes',i:'Chest pass to the wall and catch with two hands. Step into every pass.'},
+  quickfeet:{n:'Quick feet',i:'Fast feet in place. Stay on your toes.'},
+  plank:{n:'Plank hold',i:'Hold a plank. Tight core and a flat back.'}
+};
+/* [drill, work seconds, rest seconds, rounds] */
+const WORKOUTS=[
+  {n:'Quick 10',d:'Warm up, shoot, finish, defend.',s:[['pound',40,20,2],['fig8',30,15,2],['form',45,15,3],['mikan',30,20,3],['slides',30,20,2]]},
+  {n:'Handles',d:'Ball control in place. No hoop needed.',s:[['tips',30,15,2],['pound',40,20,2],['cross',30,20,3],['fig8',30,20,2],['wraps',30,15,2],['quickfeet',20,20,2]]},
+  {n:'Shooter',d:'Reps at the mini hoop.',s:[['form',45,15,3],['catchshoot',40,20,3],['pumpdrive',40,20,2],['mikan',30,20,2],['ft',60,0,1]]},
+  {n:'Defense and conditioning',d:'Footwork and stamina.',s:[['quickfeet',30,15,2],['slides',30,20,3],['pivots',30,15,2],['wallpass',30,15,2],['plank',30,30,2]]}
+];
+const LEVELS=[{n:'Rookie',w:0.75,r:1.2},{n:'Starter',w:1,r:1},{n:'All-Star',w:1.25,r:0.8}];
+let tr=null;
+function lvl(){return LEVELS[cfg.trainLevel==null?1:cfg.trainLevel]||LEVELS[1];}
+function prepSecs(d){const w=(d.n+' '+d.i).split(/\s+/).length;return Math.min(16,Math.max(7,Math.round(4+w*0.33)));}
+function buildSteps(wk){
+  const L=lvl(),steps=[];
+  wk.s.forEach(([id,wsec,rsec,rounds],di)=>{
+    const d=DRILLS[id];const W=Math.round(wsec*L.w),R=Math.round(rsec*L.r);
+    steps.push({t:'prep',di,dur:prepSecs(d)});
+    for(let r=1;r<=rounds;r++){
+      steps.push({t:'work',di,r,rounds,dur:W});
+      if(r<rounds&&R>0)steps.push({t:'rest',di,r,rounds,dur:R});
+    }
+  });
+  return steps;
+}
+function wkMinutes(wk){return Math.max(1,Math.round(buildSteps(wk).reduce((a,x)=>a+x.dur,0)/60));}
+/* any-text speech: the TV voice in the app, the browser voice elsewhere; screen text only if neither */
+function talk(text){
+  if(!cfg.voice)return false;
+  if(nativeReady()){try{window.HoopApp.stop();window.HoopApp.speak(text,1.0);return true;}catch(e){}}
+  if(synth){try{synth.cancel();speakBrowser(text,1.0);return true;}catch(e){}}
+  return false;
+}
+function countClip(n){if(!cfg.voice||!playKeys(['n'+n],0))beep();}
+function openTrain(){
+  tr={view:'list'};renderTrainList();$('train').hidden=false;
+  const f=$('trainIn').querySelector('.wcard');(f||$('trBack')).focus();
+}
+function closeTrain(){
+  if(tr&&tr.running)tr.running=false;
+  try{window.HoopApp&&window.HoopApp.stop();}catch(e){}
+  tr=null;$('train').hidden=true;$('bTrain').focus();
+}
+function trainBack(){
+  if(!tr||tr.view==='list'){closeTrain();return;}
+  if(tr.view==='run'&&tr.running){trPause(true);return;}
+  const w=tr.w;tr={view:'list'};renderTrainList();
+  const c=$('trainIn').querySelector('[data-w="'+w+'"]');(c||$('trBack')).focus();
+}
+function renderTrainList(){
+  const box=$('trainIn');
+  let h='<div class="sheet-head"><h2>Training</h2><button class="ctl" id="trBack">Back</button></div>';
+  h+='<div class="lvl"><span class="qlbl">Level</span>'+LEVELS.map((L,i)=>'<button class="chip'+((cfg.trainLevel==null?1:cfg.trainLevel)===i?' on':'')+'" data-lv="'+i+'">'+L.n+'</button>').join('')+
+     '<span class="note" style="margin:0">Rookie works shorter with more rest. All-Star works longer with less rest.</span></div>';
+  h+='<div class="wgrid">'+WORKOUTS.map((wk,i)=>'<button class="wcard" data-w="'+i+'"><span class="wn">'+esc(wk.n)+'</span><span class="wt">ABOUT '+wkMinutes(wk)+' MIN · '+wk.s.length+' DRILLS</span><span class="wd">'+esc(wk.d)+'</span><span class="wl">'+wk.s.map(x=>esc(DRILLS[x[0]].n)).join(' · ')+'</span></button>').join('')+'</div>';
+  if(!nativeReady()&&!synth)h+='<p class="note">Spoken instructions need the TV voice in the Hoop Clock app. Here the instructions show on screen, with a whistle for Go and beeps for Rest.</p>';
+  box.innerHTML=h;
+  $('trBack').onclick=closeTrain;
+  box.querySelectorAll('[data-lv]').forEach(b=>b.onclick=()=>{cfg.trainLevel=+b.dataset.lv;save();renderTrainList();const n=$('trainIn').querySelector('[data-lv="'+b.dataset.lv+'"]');if(n)n.focus();});
+  box.querySelectorAll('[data-w]').forEach(b=>b.onclick=()=>startWorkout(+b.dataset.w));
+}
+function startWorkout(w){
+  audio();
+  const wk=WORKOUTS[w];
+  tr={view:'run',w,wk,steps:buildSteps(wk),si:0,left:0,running:false,started:false,makes:{},lastSec:null,swDone:false,t0:0,elapsed:0};
+  tr.left=tr.steps[0].dur*1000;
+  renderTrainRun();updateTrain(true);
+  $('trPause').focus();
+}
+function renderTrainRun(){
+  const box=$('trainIn');
+  box.innerHTML='<div class="tr-top"><span class="tw">'+esc(tr.wk.n)+'</span><span class="ts" id="trStep"></span><button class="ctl" id="trBack">Back</button></div>'+
+    '<div class="tr-bar"><i id="trProg"></i></div>'+
+    '<div class="tr-main"><div class="tr-clock"><div class="tr-phase" id="trPhase"></div><div class="tr-time" id="trTime"></div></div>'+
+    '<div class="tr-info"><div class="tr-name" id="trName"></div><div class="tr-ins" id="trIns"></div><div class="tr-makes" id="trMakesWrap">Makes<b id="trMakes">0</b></div></div></div>'+
+    '<div class="tr-next" id="trNext"></div>'+
+    '<div class="tr-ctl"><button class="ctl primary" id="trPause">Start</button><button class="ctl" id="trSkip">Skip drill</button><button class="ctl" id="trEnd">End workout</button></div>'+
+    '<div class="hint" id="trHint">On shooting drills, left or right adds a make and down removes one. Up or Space pauses.</div>';
+  $('trBack').onclick=trainBack;
+  $('trPause').onclick=()=>trPause(tr.running);
+  $('trSkip').onclick=trSkip;
+  armButton($('trEnd'),'End workout',()=>{tr.running=false;try{window.HoopApp&&window.HoopApp.stop();}catch(e){}trDone(true);});
+}
+function curStep(){return tr.steps[tr.si];}
+function drillOf(step){return DRILLS[tr.wk.s[step.di][0]];}
+function trPause(pause){
+  if(!tr||tr.view!=='run')return;
+  audio();
+  if(pause){tr.running=false;try{window.HoopApp&&window.HoopApp.stop();}catch(e){}}
+  else{
+    tr.running=true;lockWake();
+    if(!tr.started){tr.started=true;enterStep(true);}
+  }
+  updateTrain(true);
+}
+function enterStep(first){
+  const step=curStep(),d=drillOf(step);
+  tr.left=step.dur*1000;tr.lastSec=null;tr.swDone=false;
+  if(step.t==='prep'){
+    let pre='';
+    if(step.di>0){const pd=DRILLS[tr.wk.s[step.di-1][0]];const m=tr.makes[step.di-1];if(pd.makes&&m!=null)pre='You made '+m+'. ';}
+    if(!talk(pre+(step.di===0?'First drill. ':'Next drill. ')+d.n+'. '+d.i)&&!first)whistle();
+  }else if(step.t==='work'){
+    whistle();
+    talk(step.r===step.rounds&&step.rounds>1?'Last round. Go!':'Go!');
+  }else if(step.t==='rest'){
+    const left=step.rounds-step.r;
+    if(!talk('Rest. '+(left===1?'One more round.':numWord(left).replace(/^./,c=>c.toUpperCase())+' more rounds.'))){beep();setTimeout(beep,180);}
+  }
+  renderStepText();
+}
+function renderStepText(){
+  const step=curStep(),d=drillOf(step);
+  $('trName').textContent=d.n;$('trIns').textContent=d.i;
+  $('trMakesWrap').hidden=!d.makes;
+  $('trMakes').textContent=String(tr.makes[step.di]||0);
+  const nd=tr.wk.s[step.di+1];
+  $('trNext').innerHTML=nd?'Next drill: <b>'+esc(DRILLS[nd[0]].n)+'</b>':'Last drill of the workout';
+  $('trStep').textContent='Drill '+(step.di+1)+' of '+tr.wk.s.length+(step.t==='prep'?'':' · Round '+step.r+' of '+step.rounds);
+}
+function nextStep(){
+  if(tr.si>=tr.steps.length-1){trDone(false);return;}
+  tr.si++;enterStep(false);
+}
+function trSkip(){
+  if(!tr||tr.view!=='run')return;
+  const di=curStep().di;
+  let j=tr.si;while(j<tr.steps.length&&tr.steps[j].di===di)j++;
+  if(j>=tr.steps.length){trDone(false);return;}
+  tr.si=j;if(!tr.started)tr.started=true;enterStep(false);updateTrain(true);
+}
+function trDone(early){
+  tr.view='done';tr.running=false;
+  const shots=tr.wk.s.map((x,i)=>({d:DRILLS[x[0]],m:tr.makes[i]})).filter(x=>x.d.makes&&x.m!=null);
+  const total=shots.reduce((a,x)=>a+x.m,0);
+  if(!early){
+    if(cfg.beeps){tone(784,0.14,'triangle',0.24);tone(988,0.14,'triangle',0.24,0.15);tone(1319,0.3,'triangle',0.24,0.3);}
+    talk('Workout complete. '+(total?'You made '+total+' shots. ':'')+'Great work.');
+  }
+  const mins=Math.max(1,Math.round(tr.elapsed/60000));
+  let h='<div class="sheet-head"><h2>'+(early?'Workout ended':'Workout complete')+'</h2><button class="ctl" id="trBack">Back</button></div>';
+  h+='<div class="hsum"><span class="big">'+esc(tr.wk.n)+'</span><span class="sub">'+lvl().n+' level · '+mins+' min of training'+(total?' · '+total+' makes':'')+'</span></div>';
+  if(shots.length)h+='<div class="hlist">'+shots.map(x=>'<button class="ev"><span class="et"></span><span class="ed">'+esc(x.d.n)+'</span><span class="es">'+x.m+' makes</span></button>').join('')+'</div>';
+  h+='<div class="hactions"><button class="ctl primary" id="trAgain">Do it again</button><button class="ctl" id="trList">Pick another workout</button></div>';
+  const w=tr.w;
+  $('trainIn').innerHTML=h;
+  $('trBack').onclick=trainBack;$('trList').onclick=trainBack;
+  $('trAgain').onclick=()=>startWorkout(w);
+  $('trAgain').focus();
+}
+function updateTrain(force){
+  if(!tr||tr.view!=='run')return;
+  const step=curStep();
+  const secs=Math.max(0,Math.ceil(tr.left/1000));
+  $('trTime').textContent=Math.floor(secs/60)+':'+String(secs%60).padStart(2,'0');
+  const ph=$('trPhase');
+  const label=!tr.started?'Press Start':(step.t==='work'?'Work':(step.t==='rest'?'Rest':'Get ready'));
+  ph.textContent=tr.running||!tr.started?label:'Paused';
+  ph.className='tr-phase '+(tr.started?step.t:'prep');
+  $('trPause').textContent=!tr.started?'Start':(tr.running?'Pause':'Resume');
+  const tot=tr.steps.reduce((a,x)=>a+x.dur,0)*1000;
+  const done=tr.steps.slice(0,tr.si).reduce((a,x)=>a+x.dur,0)*1000+(step.dur*1000-tr.left);
+  $('trProg').style.width=Math.min(100,100*done/tot).toFixed(1)+'%';
+  if(force)renderStepText();
+}
+let trLast=performance.now();
+setInterval(()=>{
+  const now=performance.now(),dt=Math.min(now-trLast,500);trLast=now;
+  if(!tr||tr.view!=='run'||!tr.running)return;
+  tr.left-=dt;tr.elapsed+=dt;
+  const step=curStep(),d=drillOf(step);
+  const sec=Math.ceil(tr.left/1000);
+  if(sec!==tr.lastSec){
+    tr.lastSec=sec;
+    if(step.t!=='work'&&sec>=1&&sec<=3)countClip(sec);
+    if(step.t==='work'){
+      if(sec>=1&&sec<=3)beep();
+      if(d.sw&&!tr.swDone&&tr.left<=step.dur*500){tr.swDone=true;if(!talk(d.sw)){beep();setTimeout(beep,150);setTimeout(beep,300);}}
+    }
+  }
+  if(tr.left<=0){
+    if(step.t==='work'&&cfg.beeps)tone(523,0.25,'triangle',0.22);
+    nextStep();
+  }
+  if(tr&&tr.view==='run')updateTrain(false);
+},100);
+/* remote and controller keys while a workout is on screen */
+function trainKey(e){
+  const k=e.key,id=actionFor(e);
+  const isPause=k===' '||k==='MediaPlayPause'||k==='MediaPlay'||k==='MediaPause'||e.keyCode===179||id==='play'||(tr.running&&k==='ArrowUp');
+  if(isPause){if(!e.repeat)trPause(tr.running);return true;}
+  if(!tr.running)return false;
+  if(e.repeat)return true;
+  const step=curStep(),d=drillOf(step);
+  const isMake=k==='ArrowLeft'||k==='ArrowRight'||(id&&id[0]==='p');
+  const isUndo=k==='ArrowDown'||id==='undo';
+  if((isMake||isUndo)&&d.makes&&step.t==='work'){
+    const n=(tr.makes[step.di]||0)+(isMake?1:-1);tr.makes[step.di]=Math.max(0,n);
+    $('trMakes').textContent=String(tr.makes[step.di]);
+    if(isMake&&cfg.beeps)tone(1175,0.08,'triangle',0.2);
+    return true;
+  }
+  return k.startsWith('Arrow')||!!id;
+}
+$('bTrain').onclick=openTrain;
 
 /* ---------- game history ---------- */
 let games=[];try{games=JSON.parse(localStorage.getItem('hoopclock.games')||'[]');}catch(e){games=[];}
@@ -1278,7 +1535,7 @@ function closeSetup(){learning=null;updateHint();$('sheet').hidden=true;$('bSetu
 
 /* ---------- remote / keyboard ---------- */
 function focusables(){
-  const scope=!$('hist').hidden?$('hist'):(!$('modes').hidden?$('modes'):($('sheet').hidden?$('board'):$('sheet')));
+  const scope=!$('train').hidden?$('train'):!$('hist').hidden?$('hist'):(!$('modes').hidden?$('modes'):($('sheet').hidden?$('board'):$('sheet')));
   return [...scope.querySelectorAll('button:not([disabled]),input')].filter(e=>e.offsetParent!==null);
 }
 function move(key){
@@ -1313,6 +1570,7 @@ document.addEventListener('keydown',e=>{
   if(tag==='INPUT'&&(k==='ArrowLeft'||k==='ArrowRight'))return;
   if(k.startsWith('Arrow')){e.preventDefault();move(k);return;}
   if(tag==='INPUT')return;
+  if(!$('train').hidden){if(k==='Escape'){e.preventDefault();trainBack();}return;}
   if(!$('hist').hidden){if(k==='Escape'){e.preventDefault();histBack();}return;}
   if(!$('modes').hidden){if(k==='Escape'&&!$('bBack').hidden){e.preventDefault();closeModes();}return;}
   if(k==='Escape'&&!$('sheet').hidden){e.preventDefault();closeSetup();return;}
@@ -1327,6 +1585,7 @@ document.addEventListener('keydown',()=>{const a=document.activeElement;if(a&&a.
 /* TV app Back button: close what is open, or show the mode picker. Returns false when there is nothing left to close. */
 window.hoopBack=function(){
   if(nameEditing!==null){nameEditing=null;renderPlayers();return true;}
+  if(!$('train').hidden){trainBack();return true;}
   if(!$('hist').hidden){histBack();return true;}
   if(learning){learning=null;buildPads();return true;}
   if(!$('sheet').hidden){closeSetup();return true;}
