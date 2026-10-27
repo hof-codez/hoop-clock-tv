@@ -514,8 +514,15 @@ function tick(){
 }
 setInterval(tick,50);
 
+/* The whole second the screen is showing. Under a minute the clock shows tenths,
+   so 19.9 down to 19.0 all read as nineteen. Calls follow that number. */
+function shownSec(ms){
+  const c=Math.ceil(ms/1000);
+  if(c>=60)return c;
+  return Math.floor(Math.ceil(ms/100)/10);
+}
 function gameCalls(){
-  const s=Math.ceil(st.game/1000);
+  const s=shownSec(st.game);
   if(s===st.lastS)return;
   st.lastS=s;
   const full=cfg.lengths[st.q];
@@ -524,8 +531,8 @@ function gameCalls(){
     if(!say(['n'+s],numWord(s),{rate:s<=10?1.25:1.15}))beep();
     return;
   }
-  if(s===30&&cfg.countFrom<30){say(['s30'],'Thirty seconds left');return;}
   if(s>=full)return;
+  if(s===30&&cfg.countFrom<30){say(['s30'],'Thirty seconds left');return;}
   if(s%60===0){
     const m=s/60;const d=dings(m);
     say(['m'+m],'You have '+minWord(m)+' left',{delay:d?d+0.2:0});
