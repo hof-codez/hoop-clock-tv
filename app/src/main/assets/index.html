@@ -151,6 +151,11 @@ button:focus-visible,button.kb:focus,input:focus,select:focus{outline:4px solid 
 .chip{background:var(--bg);border:2px solid var(--line);border-radius:999px;font-weight:700;
   font-size:clamp(14px,2.5vh,24px);padding:.2em .8em}
 .chip.on{background:var(--ball);border-color:var(--ball);color:#10141a}
+.start-big{font-size:clamp(22px,5vh,48px);padding:.55em 2em}
+.qunit{color:var(--muted);font-weight:600;font-size:clamp(14px,2.4vh,22px)}
+.qrow .tog{min-width:4.5ch}
+.qrow.off .sb,.qrow.off .val,.qrow.off .qunit{opacity:.35}
+body.noshot .shotwrap,body.noshot #bShot{display:none}
 .modes-foot{display:flex;gap:16px;align-items:center;flex-wrap:wrap;justify-content:center}
 
 body.timer .team,body.timer .shotwrap,body.timer #bShot{display:none}
@@ -181,7 +186,7 @@ body.timer .glabel{font-size:clamp(16px,3.4vh,34px)}
     <div class="pips" id="pips"></div>
     <div class="phase" id="phase">Ready</div>
     <div class="tools">
-      <button class="tool" id="bMode">Mode</button>
+      <button class="tool" id="bMode">Game setup</button>
       <button class="tool" id="bSetup">Setup</button>
       <button class="tool" id="bFull">Full screen</button>
     </div>
@@ -226,7 +231,7 @@ body.timer .glabel{font-size:clamp(16px,3.4vh,34px)}
 </main>
 
 <section class="modes" id="modes">
-  <h1>Pick a <span>mode</span></h1>
+  <h1>Game <span>setup</span></h1>
   <div class="quick">
     <div class="qrow">
       <span class="qlbl">Quarter length</span>
@@ -241,25 +246,20 @@ body.timer .glabel{font-size:clamp(16px,3.4vh,34px)}
       <span class="val" id="qcVal">4</span>
       <button class="sb" id="qcPlus" aria-label="More quarters">+</button>
     </div>
-  </div>
-  <div class="mode-row">
-    <button class="mode" id="mGame">
-      <span class="mk">Full game</span>
-      <span class="mt">Game mode</span>
-      <span class="md">Run it like a real game.</span>
-      <ul><li>Score for both players</li><li>Shot clock with buzzer</li><li>Minute calls and a spoken final countdown</li></ul>
-    </button>
-    <button class="mode" id="mTimer">
-      <span class="mk">Clock only</span>
-      <span class="mt">Quarter timer</span>
-      <span class="md">Just the time left. No score, no shot clock.</span>
-      <ul><li>Calls the time left after each minute</li><li>Calls 30 seconds left</li><li>Counts down out loud from 20</li></ul>
-    </button>
+    <div class="qrow">
+      <span class="qlbl">Shot clock</span>
+      <button class="tog" id="qsTog">On</button>
+      <button class="sb" id="qsMinus" aria-label="Shorter shot clock">−</button>
+      <span class="val" id="qsVal">24</span>
+      <button class="sb" id="qsPlus" aria-label="Longer shot clock">+</button>
+      <span class="qunit" id="qsUnit">sec</span>
+    </div>
   </div>
   <div class="modes-foot">
+    <button class="ctl primary start-big" id="mGame">Start game</button>
     <button class="ctl" id="bBack" hidden>Back to game</button>
   </div>
-  <div class="hint">Picking a mode starts a new game. Arrows move, OK picks.</div>
+  <div class="hint">Arrows move, OK picks. Start game resets the score.</div>
 </section>
 
 <section class="sheet" id="sheet" hidden>
@@ -292,25 +292,29 @@ body.timer .glabel{font-size:clamp(16px,3.4vh,34px)}
 const $=id=>document.getElementById(id);
 const ORD=['first','second','third','fourth','fifth','sixth'];
 const WORDS=['zero','one','two','three','four','five','six','seven','eight','nine','ten','eleven','twelve','thirteen','fourteen','fifteen','sixteen','seventeen','eighteen','nineteen','twenty'];
-const SHOT_OPTS=[0,10,12,14,18,20,24,30];
+const SHOT_OPTS=[10,12,14,18,20,24,30];
 const BRK_OPTS=[0,15,30,45,60,90,120,180];
 const CALL_OPTS=[0,5,10];
 const COUNT_OPTS=[10,15,20,30];
 
 const DEF={quarters:4,lengths:[300,300,300,300,300,300],shot:24,brk:60,minuteCall:0,countFrom:20,
-  voice:true,voiceSrc:'clips',minuteDings:true,beeps:true,pauseOnShot:true,arrowScore:true,arrowPts:2,names:['Home','Away'],
+  voice:true,voiceSrc:'clips',minuteDings:true,beeps:true,pauseOnShot:true,arrowScore:true,arrowPts:1,shotOn:true,cfgv:2,names:['Home','Away'],
   binds:{p0a:{s:'k:1',l:'1'},p0b:{s:'k:2',l:'2'},p0c:{s:'k:3',l:'3'},p1a:{s:'k:7',l:'7'},p1b:{s:'k:8',l:'8'},p1c:{s:'k:9',l:'9'},
     play:{s:'k:5',l:'5'},shot:{s:'k:0',l:'0'},undo:{s:'k:-',l:'-'}}};
 let cfg=load();
 
 function load(){
-  try{const raw=localStorage.getItem('hoopclock.cfg');if(raw){const c=JSON.parse(raw);return Object.assign({},DEF,c,{lengths:(c.lengths||DEF.lengths).concat(DEF.lengths).slice(0,6),names:c.names||DEF.names,binds:JSON.parse(JSON.stringify(c.binds||DEF.binds))});}}catch(e){}
+  try{const raw=localStorage.getItem('hoopclock.cfg');if(raw){const c=JSON.parse(raw);
+    /* settings from older versions: scoring now counts by 1s, and "Off" moved to its own switch */
+    if(c.cfgv!==2){c.arrowPts=1;c.cfgv=2;}
+    if(c.shot===0){c.shotOn=false;c.shot=24;}
+    return Object.assign({},DEF,c,{lengths:(c.lengths||DEF.lengths).concat(DEF.lengths).slice(0,6),names:c.names||DEF.names,binds:JSON.parse(JSON.stringify(c.binds||DEF.binds))});}}catch(e){}
   return JSON.parse(JSON.stringify(DEF));
 }
 function save(){try{localStorage.setItem('hoopclock.cfg',JSON.stringify(cfg));}catch(e){}}
 
 let mode='game';
-const SHOT=()=>mode==='timer'?0:cfg.shot;
+const SHOT=()=>(mode==='timer'||!cfg.shotOn)?0:cfg.shot;
 const CALL=()=>mode==='timer'?0:cfg.minuteCall;
 
 let st;
@@ -621,6 +625,7 @@ function fmtGame(ms){
   return (Math.ceil(ms/100)/10).toFixed(1);
 }
 function render(){
+  document.body.classList.toggle('noshot',!SHOT());
   let pips='';
   for(let i=0;i<cfg.quarters;i++){
     const cls=i<st.q||(st.phase==='final')?'done':(i===st.q?'now':'');
@@ -690,8 +695,10 @@ function buildSetup(){
 
   const gr=$('gRules');gr.innerHTML='<h3>Clock and voice</h3>';
   if(mode==='game'){
-  gr.appendChild(stepper('Shot clock',cfg.shot?cfg.shot+' sec':'Off',
-    ()=>{cfg.shot=cycle(SHOT_OPTS,cfg.shot,-1);},()=>{cfg.shot=cycle(SHOT_OPTS,cfg.shot,1);},'vS'));
+  const SO=[0].concat(SHOT_OPTS);const shotCur=()=>cfg.shotOn?cfg.shot:0;
+  const setShot=v=>{if(v===0)cfg.shotOn=false;else{cfg.shotOn=true;cfg.shot=v;}};
+  gr.appendChild(stepper('Shot clock',cfg.shotOn?cfg.shot+' sec':'Off',
+    ()=>{setShot(cycle(SO,shotCur(),-1));},()=>{setShot(cycle(SO,shotCur(),1));},'vS'));
   gr.appendChild(stepper('Minute call',cfg.minuteCall?cfg.minuteCall+' sec early':'On the minute',
     ()=>{cfg.minuteCall=cycle(CALL_OPTS,cfg.minuteCall,-1);},()=>{cfg.minuteCall=cycle(CALL_OPTS,cfg.minuteCall,1);},'vM'));
   }
@@ -894,7 +901,6 @@ function changed(){
 }
 function setMode(m){
   mode=m;document.body.classList.toggle('timer',m==='timer');
-  try{localStorage.setItem('hoopclock.mode',m);}catch(e){}
   audio();
   newGame(true);
   $('modes').hidden=true;updateHint();$('bPlay').focus();
@@ -911,24 +917,28 @@ function renderQuick(){
       b.onclick=()=>{setAllLengths(m*60);quickChanged();};box.appendChild(b);});
   }
   box.querySelectorAll('.chip').forEach(b=>b.classList.toggle('on',allSame()&&cfg.lengths[0]===b.dataset.m*60));
+  $('qsTog').textContent=cfg.shotOn?'On':'Off';$('qsTog').classList.toggle('on',cfg.shotOn);
+  $('qsVal').textContent=String(cfg.shot);
+  $('qsTog').closest('.qrow').classList.toggle('off',!cfg.shotOn);
 }
 function quickChanged(){save();if(!st.started){const sc=st.score;freshState();st.score=sc;}renderQuick();render();}
 $('qlMinus').onclick=()=>{setAllLengths((allSame()?cfg.lengths[0]:cfg.lengths[0])-30);quickChanged();};
 $('qlPlus').onclick=()=>{setAllLengths(cfg.lengths[0]+30);quickChanged();};
 $('qcMinus').onclick=()=>{cfg.quarters=Math.max(1,cfg.quarters-1);quickChanged();};
 $('qcPlus').onclick=()=>{cfg.quarters=Math.min(6,cfg.quarters+1);quickChanged();};
+$('qsTog').onclick=()=>{cfg.shotOn=!cfg.shotOn;quickChanged();};
+$('qsMinus').onclick=()=>{cfg.shotOn=true;cfg.shot=cycle(SHOT_OPTS,cfg.shot,-1);quickChanged();};
+$('qsPlus').onclick=()=>{cfg.shotOn=true;cfg.shot=cycle(SHOT_OPTS,cfg.shot,1);quickChanged();};
 
 function openModes(){
   renderQuick();
   if(st.running)toggle();
   $('bBack').hidden=!st.started;
   $('modes').hidden=false;
-  let lastMode='game';try{lastMode=localStorage.getItem('hoopclock.mode')||'game';}catch(e){}
-  $(lastMode==='timer'?'mTimer':'mGame').focus();
+  $('mGame').focus();
 }
 function closeModes(){$('modes').hidden=true;$('bPlay').focus();}
 $('mGame').onclick=()=>setMode('game');
-$('mTimer').onclick=()=>setMode('timer');
 $('bBack').onclick=closeModes;
 $('bMode').onclick=openModes;
 
