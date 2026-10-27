@@ -1,0 +1,43 @@
+plugins {
+    id "com.android.application"
+}
+
+android {
+    namespace "com.hof.hoopclock"
+    compileSdk 34
+
+    defaultConfig {
+        applicationId "com.hof.hoopclock"
+        minSdk 24
+        targetSdk 34
+        versionCode 1
+        versionName "1.0"
+    }
+
+    // A fixed key so each new build installs over the last one.
+    signingConfigs {
+        release {
+            storeFile file("hoopclock.keystore")
+            storePassword "hoopclock"
+            keyAlias "hoopclock"
+            keyPassword "hoopclock"
+        }
+    }
+
+    buildTypes {
+        release {
+            minifyEnabled false
+            signingConfig signingConfigs.release
+        }
+    }
+
+    lint {
+        checkReleaseBuilds false
+        abortOnError false
+    }
+
+    compileOptions {
+        sourceCompatibility JavaVersion.VERSION_17
+        targetCompatibility JavaVersion.VERSION_17
+    }
+}
