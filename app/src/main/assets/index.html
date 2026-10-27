@@ -482,7 +482,7 @@ function updateVoiceNote(){
   const n=$('voiceNote');if(!n)return;
   if(cfg.voiceSrc==='native'){n.textContent=nativeReady()?'Using the TV voice. It can say player names. Press Test voice to check it.':'The TV voice is still loading or this TV has no speech engine. Voice 1 plays until it is ready.';return;}
   if(useBrowserVoice())n.textContent='Using the browser voice'+(voice?' ('+voice.name+')':'')+'. If you hear chimes but no words, switch Voice type back to Recorded.';
-  else if(curVox()==='v3')n.textContent='Using Kids voice, recorded by the Fells kids. It says Home team and Away team. For player names, switch Voice type to TV voice.';
+  else if(curVox()==='v3')n.textContent='Using Male voice, recorded for Hoop Clock. It says Home team and Away team. For player names, switch Voice type to TV voice.';
   else n.textContent='Using '+(curVox()==='v2'?'Voice 2':'Voice 1')+', built into the page so it works in any browser. Try both with Test voice and keep whichever sounds clearer on your speakers.';
 }
 function numWord(n){return WORDS[n]||String(n);}
@@ -811,7 +811,7 @@ function buildSetup(){
   gr.appendChild(stepper('Count down last',cfg.countFrom+' sec',
     ()=>{cfg.countFrom=cycle(COUNT_OPTS,cfg.countFrom,-1);},()=>{cfg.countFrom=cycle(COUNT_OPTS,cfg.countFrom,1);},'vC'));
   gr.appendChild(toggleRow('Voice calls','voice'));
-  const VS=['clips3'].concat(hasNative()?['native']:[],['clips','clips2','browser']),VL={clips3:'Kids voice',native:'TV voice',clips:'Voice 1',clips2:'Voice 2',browser:'Browser'};
+  const VS=['clips3'].concat(hasNative()?['native']:[],['clips','clips2','browser']),VL={clips3:'Male voice',native:'TV voice',clips:'Voice 1',clips2:'Voice 2',browser:'Browser'};
   gr.appendChild(stepper('Voice type',VL[cfg.voiceSrc]||'Voice 1',
     ()=>{cfg.voiceSrc=cycle(VS,cfg.voiceSrc,-1);cfg.voicePicked=true;decodeVox();},()=>{cfg.voiceSrc=cycle(VS,cfg.voiceSrc,1);cfg.voicePicked=true;decodeVox();},'vV'));
   gr.appendChild(toggleRow('Minute dings','minuteDings'));
