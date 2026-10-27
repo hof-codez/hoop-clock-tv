@@ -194,6 +194,32 @@ body.timer .glabel{font-size:clamp(16px,3.4vh,34px)}
   .ctl{min-width:0;flex:1 1 40%}
   .top{flex-wrap:wrap}
 }
+
+/* game history */
+#hist{z-index:7}
+.hlist{display:flex;flex-direction:column;gap:10px}
+.hrow,.ev{display:grid;align-items:center;gap:14px;width:100%;text-align:left;background:var(--panel);
+  border:2px solid var(--line);border-radius:8px;padding:10px 14px;font-size:clamp(15px,2.6vh,24px)}
+.hrow{grid-template-columns:minmax(0,1.1fr) minmax(0,1.6fr) auto}
+.hrow .hd{color:var(--muted);font-weight:600}
+.hrow .hs{font-weight:700;font-variant-numeric:tabular-nums;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.tag{font-family:var(--f-label);font-weight:700;letter-spacing:.1em;text-transform:uppercase;font-size:.78em;
+  padding:.2em .7em;border-radius:999px;border:2px solid var(--line);color:var(--muted);white-space:nowrap}
+.tag.win{border-color:var(--ball);color:var(--ball)}
+.hsum{display:flex;flex-direction:column;gap:6px;background:var(--panel);border:2px solid var(--line);border-radius:12px;padding:14px 18px}
+.hsum .big{font-weight:700;font-variant-numeric:tabular-nums;font-size:clamp(26px,5.5vh,52px);line-height:1}
+.hsum .sub{color:var(--muted);font-size:clamp(14px,2.4vh,22px)}
+.qhead{font-family:var(--f-label);font-weight:700;letter-spacing:.2em;text-transform:uppercase;color:var(--ball);
+  font-size:clamp(14px,2.4vh,22px);margin-top:8px}
+.ev{grid-template-columns:4.5ch minmax(0,1fr) auto;padding:7px 14px}
+.ev .et{font-weight:700;font-variant-numeric:tabular-nums;color:var(--muted)}
+.ev .es{font-weight:700;font-variant-numeric:tabular-nums}
+.ev.lead{background:rgba(232,116,43,.12)}
+.ev.lead .ed b{color:var(--ball)}
+.ev.tie .ed b{color:var(--focus)}
+.ev.undo{opacity:.7}
+.hactions{display:flex;gap:12px;flex-wrap:wrap}
+@media (max-width:760px){.hrow{grid-template-columns:1fr}}
 @media (prefers-reduced-motion:reduce){.shot.hot{animation:none}.game{transition:none}}
 </style>
 </head>
@@ -299,10 +325,21 @@ body.timer .glabel{font-size:clamp(16px,3.4vh,34px)}
   <div class="modes-foot">
     <button class="ctl primary start-big" id="mGame">Start game</button>
     <button class="ctl" id="bBack" hidden>Back to game</button>
+    <button class="ctl" id="bHist">Game history</button>
     <button class="ctl" id="bExit" hidden>Exit app</button>
   </div>
   <div class="hint">Arrows move, OK picks. Start game resets the score.</div>
   <div class="brand-foot">Built by <b>HofCodez</b></div>
+</section>
+
+<section class="sheet" id="hist" hidden>
+  <div class="sheet-in">
+    <div class="sheet-head">
+      <h2 id="histTitle">Game history</h2>
+      <button class="ctl" id="histBack">Back</button>
+    </div>
+    <div id="histBody"></div>
+  </div>
 </section>
 
 <section class="sheet" id="sheet" hidden>
@@ -366,7 +403,7 @@ let st;
 function freshState(){
   st={q:0,phase:'game',running:false,started:false,
     game:cfg.lengths[0]*1000,shot:SHOT()*1000,brk:0,
-    score:[0,0],lastS:null,lastShotS:null,lastBrkS:null};
+    score:[0,0],lastS:null,lastShotS:null,lastBrkS:null,events:[],saved:false,startedAt:0};
 }
 freshState();
 
@@ -620,7 +657,7 @@ function toggle(){
   if(st.phase==='final'){if(st.finalAt)return;newGame(true);return;}
   if(!st.running){
     if(st.phase==='game'){
-      if(!st.started)say(['tip'],'Tip off');
+      if(!st.started){say(['tip'],'Tip off');st.startedAt=Date.now();}
       whistle();st.started=true;
     }
     setRunning(true);
@@ -651,22 +688,26 @@ function newGame(force){
   clearTimeout(newArm);newArm=null;b.textContent='New game';b.classList.remove('warn');
   setRunning(false);stopVoice();
   clearTimeout(finalTimer);clearTimeout(scoreTimer);
+  if(st.started&&!st.saved&&st.events.length)saveGame(false);
   freshState();hist=[];render();
 }
 let hist=[];
 function addPts(t,n,fx){
+  const prev=st.score.slice();
   const before=st.score[t];
   st.score[t]=Math.max(0,st.score[t]+n);
   const real=st.score[t]-before;
   if(real!==0&&n>0)hist.push({t:t,n:real});
   if(hist.length>50)hist.shift();
   if(fx&&real!==0)scoreFx(t,real);
-  if(real!==0)queueScoreCall();
+  if(real!==0){logScore(t,real,prev,false);queueScoreCall();}
   render();
 }
 function undoLast(){
   const h=hist.pop();if(!h)return;
+  const prevU=st.score.slice();
   st.score[h.t]=Math.max(0,st.score[h.t]-h.n);
+  logScore(h.t,-h.n,prevU,true);
   scoreFx(h.t,-h.n);queueScoreCall();render();
 }
 /* ---------- score calls ---------- */
@@ -700,6 +741,7 @@ function startFinal(){
 }
 function announceWinner(){
   st.finalAt=0;clearTimeout(scoreTimer);
+  saveGame(true);
   const [a,b]=st.score;
   if(cfg.beeps){tone(784,0.14,'triangle',0.24);tone(988,0.14,'triangle',0.24,0.15);tone(1319,0.3,'triangle',0.24,0.3);}
   if(a===b){
@@ -1064,6 +1106,112 @@ $('qsTog').onclick=()=>{cfg.shotOn=!cfg.shotOn;quickChanged();};
 $('qsMinus').onclick=()=>{cfg.shotOn=true;cfg.shot=cycle(SHOT_OPTS,cfg.shot,-1);quickChanged();};
 $('qsPlus').onclick=()=>{cfg.shotOn=true;cfg.shot=cycle(SHOT_OPTS,cfg.shot,1);quickChanged();};
 
+/* ---------- game history ---------- */
+let games=[];try{games=JSON.parse(localStorage.getItem('hoopclock.games')||'[]');}catch(e){games=[];}
+function saveGames(){try{localStorage.setItem('hoopclock.games',JSON.stringify(games.slice(0,60)));}catch(e){}}
+function clockMark(ms){const s=Math.max(0,Math.ceil(ms/1000));return Math.floor(s/60)+':'+String(s%60).padStart(2,'0');}
+function logScore(t,delta,prev,isUndo){
+  if(mode!=='game')return;
+  const now=st.score.slice();
+  const pl=Math.sign(prev[0]-prev[1]),nl=Math.sign(now[0]-now[1]);
+  let kind='score';
+  if(!isUndo&&nl!==0&&nl!==pl)kind='lead';
+  else if(nl===0&&(now[0]+now[1])>0&&pl!==0)kind='tie';
+  if(isUndo)kind='undo';
+  st.events.push({q:st.q,ms:Math.round(st.phase==='game'?st.game:0),fin:st.phase==='final',t:t,d:delta,a:now[0],b:now[1],k:kind,at:Date.now()});
+}
+function saveGame(finished){
+  if(st.saved||mode!=='game')return;
+  st.saved=true;
+  const [a,b]=st.score;
+  games.unshift({at:Date.now(),start:st.startedAt||Date.now(),names:cfg.names.slice(),score:[a,b],
+    winner:a===b?-1:(a>b?0:1),finished:finished,quarters:cfg.quarters,lengths:cfg.lengths.slice(0,cfg.quarters),
+    reachedQ:st.q,events:st.events.slice()});
+  saveGames();
+}
+const ORDQ=['1st','2nd','3rd','4th','5th','6th'];
+function fmtWhen(ts){
+  try{return new Date(ts).toLocaleString(undefined,{weekday:'short',month:'short',day:'numeric',hour:'numeric',minute:'2-digit'});}
+  catch(e){return new Date(ts).toString().slice(0,21);}
+}
+function esc(x){return String(x).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));}
+function sideName(g,i){return g.names[i]+(g.names[i].toLowerCase()===(i?'away':'home')?'':' ('+(i?'Away':'Home')+')');}
+function evText(g,e){
+  const who=esc(g.names[e.t]);const pts=Math.abs(e.d);
+  if(e.k==='undo')return 'Score removed: '+who+' −'+pts;
+  let line=who+' scored <b>+'+pts+'</b>';
+  if(e.k==='lead'){const m=Math.abs(e.a-e.b);line=who+' scored +'+pts+' and <b>took the lead by '+m+'</b>';}
+  else if(e.k==='tie')line=who+' scored +'+pts+' and <b>tied it up</b>';
+  return line;
+}
+let histView=null; /* null = list, number = game index */
+let histArm=null;
+function openHist(){histView=null;renderHist();$('hist').hidden=false;const f=$('histBody').querySelector('button');(f||$('histBack')).focus();}
+function histBack(){
+  if(histView!==null){const i=histView;histView=null;renderHist();const r=$('histBody').querySelector('[data-g="'+i+'"]');(r||$('histBack')).focus();return;}
+  $('hist').hidden=true;$('bHist').focus();
+}
+function armButton(btn,label,fn){
+  btn.onclick=()=>{
+    if(histArm===btn){clearTimeout(btn._t);histArm=null;fn();return;}
+    histArm=btn;btn.textContent='Press again to confirm';btn.classList.add('warn');
+    btn._t=setTimeout(()=>{if(histArm===btn){histArm=null;btn.textContent=label;btn.classList.remove('warn');}},3000);
+  };
+}
+function renderHist(){
+  const body=$('histBody');body.innerHTML='';
+  if(histView===null){
+    $('histTitle').textContent='Game history';
+    if(!games.length){
+      body.innerHTML='<p class="note">No games yet. Every game is saved here when the final score is called, or when you start a new game partway through.</p>';
+      return;
+    }
+    const list=document.createElement('div');list.className='hlist';
+    games.forEach((g,i)=>{
+      const b=document.createElement('button');b.className='hrow';b.dataset.g=i;
+      const tag=!g.finished?'<span class="tag">Unfinished</span>':(g.winner<0?'<span class="tag">Tie</span>':'<span class="tag win">'+esc(g.names[g.winner])+' won</span>');
+      b.innerHTML='<span class="hd">'+esc(fmtWhen(g.start))+'</span><span class="hs">'+esc(g.names[0])+' '+g.score[0]+' – '+g.score[1]+' '+esc(g.names[1])+'</span>'+tag;
+      b.onclick=()=>{histView=i;renderHist();const f=$('histBody').querySelector('button');(f||$('histBack')).focus();};
+      list.appendChild(b);
+    });
+    body.appendChild(list);
+    const act=document.createElement('div');act.className='hactions';act.style.marginTop='18px';
+    const clr=document.createElement('button');clr.className='ctl';clr.textContent='Clear all history';
+    armButton(clr,'Clear all history',()=>{games=[];saveGames();renderHist();$('histBack').focus();});
+    act.appendChild(clr);body.appendChild(act);
+    return;
+  }
+  const g=games[histView];if(!g){histView=null;renderHist();return;}
+  $('histTitle').textContent='Game review';
+  const sum=document.createElement('div');sum.className='hsum';
+  const res=!g.finished?'Unfinished, stopped in the '+ORDQ[g.reachedQ]+' quarter':(g.winner<0?'Tie game':esc(g.names[g.winner])+' won by '+Math.abs(g.score[0]-g.score[1]));
+  const lens=g.lengths.every(v=>v===g.lengths[0])?g.quarters+' quarters of '+clockMark(g.lengths[0]*1000):g.quarters+' quarters';
+  sum.innerHTML='<span class="big">'+esc(g.names[0])+' '+g.score[0]+' – '+g.score[1]+' '+esc(g.names[1])+'</span>'+
+    '<span class="sub">'+res+' · '+esc(fmtWhen(g.start))+' · '+lens+'</span>';
+  body.appendChild(sum);
+  const leads=g.events.filter(e=>e.k==='lead').length,ties=g.events.filter(e=>e.k==='tie').length;
+  const st2=document.createElement('p');st2.className='note';
+  st2.textContent=g.events.filter(e=>e.k!=='undo').length+' scores · '+leads+' lead change'+(leads===1?'':'s')+' · '+ties+' tie'+(ties===1?'':'s');
+  body.appendChild(st2);
+  if(!g.events.length){const n=document.createElement('p');n.className='note';n.textContent='No points were scored in this game.';body.appendChild(n);}
+  let lastQ=-1;
+  const list=document.createElement('div');list.className='hlist';
+  g.events.forEach(e=>{
+    const qKey=e.fin?99:e.q;
+    if(qKey!==lastQ){lastQ=qKey;const h=document.createElement('div');h.className='qhead';h.textContent=e.fin?'After the final buzzer':ORDQ[e.q]+' quarter';list.appendChild(h);}
+    const b=document.createElement('button');b.className='ev '+e.k;
+    b.innerHTML='<span class="et">'+(e.fin?'0:00':clockMark(e.ms))+'</span><span class="ed">'+evText(g,e)+'</span><span class="es">'+e.a+'–'+e.b+'</span>';
+    list.appendChild(b);
+  });
+  body.appendChild(list);
+  const act=document.createElement('div');act.className='hactions';act.style.marginTop='18px';
+  const del=document.createElement('button');del.className='ctl';del.textContent='Delete this game';
+  armButton(del,'Delete this game',()=>{games.splice(histView,1);saveGames();histView=null;renderHist();const f=$('histBody').querySelector('button');(f||$('histBack')).focus();});
+  act.appendChild(del);body.appendChild(act);
+}
+$('bHist').onclick=openHist;
+$('histBack').onclick=histBack;
+
 /* ---------- player names ---------- */
 let nameEditing=null;
 function rememberName(n){
@@ -1130,7 +1278,7 @@ function closeSetup(){learning=null;updateHint();$('sheet').hidden=true;$('bSetu
 
 /* ---------- remote / keyboard ---------- */
 function focusables(){
-  const scope=!$('modes').hidden?$('modes'):($('sheet').hidden?$('board'):$('sheet'));
+  const scope=!$('hist').hidden?$('hist'):(!$('modes').hidden?$('modes'):($('sheet').hidden?$('board'):$('sheet')));
   return [...scope.querySelectorAll('button:not([disabled]),input')].filter(e=>e.offsetParent!==null);
 }
 function move(key){
@@ -1165,6 +1313,7 @@ document.addEventListener('keydown',e=>{
   if(tag==='INPUT'&&(k==='ArrowLeft'||k==='ArrowRight'))return;
   if(k.startsWith('Arrow')){e.preventDefault();move(k);return;}
   if(tag==='INPUT')return;
+  if(!$('hist').hidden){if(k==='Escape'){e.preventDefault();histBack();}return;}
   if(!$('modes').hidden){if(k==='Escape'&&!$('bBack').hidden){e.preventDefault();closeModes();}return;}
   if(k==='Escape'&&!$('sheet').hidden){e.preventDefault();closeSetup();return;}
   if(!$('sheet').hidden)return;
@@ -1178,6 +1327,7 @@ document.addEventListener('keydown',()=>{const a=document.activeElement;if(a&&a.
 /* TV app Back button: close what is open, or show the mode picker. Returns false when there is nothing left to close. */
 window.hoopBack=function(){
   if(nameEditing!==null){nameEditing=null;renderPlayers();return true;}
+  if(!$('hist').hidden){histBack();return true;}
   if(learning){learning=null;buildPads();return true;}
   if(!$('sheet').hidden){closeSetup();return true;}
   if(!$('modes').hidden)return false;   /* home screen: Back heads toward exit; Back to game stays on screen */
