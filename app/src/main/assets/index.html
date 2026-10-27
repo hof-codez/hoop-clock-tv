@@ -1147,7 +1147,7 @@ window.hoopBack=function(){
   if(nameEditing!==null){nameEditing=null;renderPlayers();return true;}
   if(learning){learning=null;buildPads();return true;}
   if(!$('sheet').hidden){closeSetup();return true;}
-  if(!$('modes').hidden){if(!$('bBack').hidden){closeModes();return true;}return false;}
+  if(!$('modes').hidden)return false;   /* home screen: Back heads toward exit; Back to game stays on screen */
   openModes();return true;
 };
 render();
