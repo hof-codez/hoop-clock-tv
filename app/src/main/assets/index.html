@@ -306,6 +306,7 @@ body.timer .glabel{font-size:clamp(16px,3.4vh,34px)}
     <div class="cq" id="cfQ">Is the final score right?</div>
     <div class="cs" id="cfScore"></div>
     <div class="ch" id="cfH">Fix any score with the +1 and −1 buttons, the arrows, or a controller. Then confirm to end the game and save it.</div>
+    <div class="ch" id="cfAuto"></div>
     <div class="cb"><button class="ctl primary" id="cfYes">Yes, end the game</button><button class="ctl" id="cfFix">Fix a score</button></div>
   </div>
   <nav class="controls">
@@ -597,8 +598,16 @@ function minWord(m){return numWord(m)+(m===1?' minute':' minutes');}
 let last=performance.now();
 function shotLive(){return SHOT()>0&&st.phase==='game'&&st.shot<st.game;}
 
+const AUTO_END=20;
 function tick(){
   const now=performance.now();const dt=Math.min(now-last,500);last=now;
+  /* confirm panel: end the game by itself after 20 quiet seconds, unless it is tied */
+  if(st.confirming){
+    const tied=st.score[0]===st.score[1];
+    const left=Math.ceil(AUTO_END-(now-st.cfIdle)/1000);
+    put('cfAuto',tied?'':'Ending the game automatically in '+Math.max(0,left)+' seconds');
+    if(!tied&&left<=0)confirmEnd();
+  }
   if(st.running){
     if(st.phase==='game'){
       st.game=Math.max(0,st.game-dt);
@@ -748,7 +757,7 @@ function addPts(t,n,fx){
   if(real!==0&&n>0)hist.push({t:t,n:real});
   if(hist.length>50)hist.shift();
   if(fx&&real!==0)scoreFx(t,real);
-  if(real!==0){logScore(t,real,prev,false);queueScoreCall();}
+  if(real!==0){logScore(t,real,prev,false);queueScoreCall();poke();}
   render();
 }
 function undoLast(){
@@ -805,7 +814,7 @@ function startOvertime(){
 }
 /* after the 10-second window: ask before the game is ended and saved */
 function askConfirm(){
-  st.finalAt=0;st.confirming=true;clearTimeout(scoreTimer);
+  st.finalAt=0;st.confirming=true;st.cfIdle=performance.now();clearTimeout(scoreTimer);
   if(cfg.beeps){tone(988,0.12,'triangle',0.22);tone(988,0.12,'triangle',0.22,0.18);}
   const toOT=st.score[0]===st.score[1]&&cfg.otOn;
   const txt=toOT?'Tie game. Check the score. Ready for overtime '+(st.ot+1)+'?':'Check the score. Is it correct?';
@@ -1117,7 +1126,10 @@ function updateHint(){
   if(mode==='game'&&cfg.arrowScore)parts.push('While live: ← '+cfg.names[0]+' +'+cfg.arrowPts+', → '+cfg.names[1]+' +'+cfg.arrowPts+', ↓ undo, ↑ or Space pause');
   $('hint').textContent=parts.length?'Controllers  ·  '+parts.join('   ·   '):'Remote: arrows move, OK presses. Play/Pause key starts and stops the clock.';
 }
+function poke(){if(st&&st.confirming)st.cfIdle=performance.now();}
+window.addEventListener('pointerdown',poke,true);
 window.addEventListener('keydown',e=>{
+  poke();
   if(e.key==='Shift'||e.key==='Control'||e.key==='Alt'||e.key==='Meta'||e.key==='NumLock')return;
   if(learning){
     if(e.repeat){e.preventDefault();e.stopImmediatePropagation();return;}
