@@ -303,9 +303,9 @@ body.timer .glabel{font-size:clamp(16px,3.4vh,34px)}
   </section>
 
   <div class="confirm" id="confirm" hidden>
-    <div class="cq">Is the final score right?</div>
+    <div class="cq" id="cfQ">Is the final score right?</div>
     <div class="cs" id="cfScore"></div>
-    <div class="ch">Fix any score with the +1 and −1 buttons, the arrows, or a controller. Then confirm to end the game and save it.</div>
+    <div class="ch" id="cfH">Fix any score with the +1 and −1 buttons, the arrows, or a controller. Then confirm to end the game and save it.</div>
     <div class="cb"><button class="ctl primary" id="cfYes">Yes, end the game</button><button class="ctl" id="cfFix">Fix a score</button></div>
   </div>
   <nav class="controls">
@@ -807,7 +807,8 @@ function startOvertime(){
 function askConfirm(){
   st.finalAt=0;st.confirming=true;clearTimeout(scoreTimer);
   if(cfg.beeps){tone(988,0.12,'triangle',0.22);tone(988,0.12,'triangle',0.22,0.18);}
-  const txt='Check the score. Is it correct?';
+  const toOT=st.score[0]===st.score[1]&&cfg.otOn;
+  const txt=toOT?'Tie game. Check the score. Ready for overtime '+(st.ot+1)+'?':'Check the score. Is it correct?';
   if(cfg.voice){if(cfg.voiceSrc!=='native'&&nativeReady())talk(txt);else say(['confirm'],txt,{delay:0.3});}
   $('confirm').hidden=false;render();$('cfYes').focus();
 }
@@ -910,7 +911,14 @@ function render(){
   }
 
   put('s0',String(st.score[0]));put('s1',String(st.score[1]));
-  if(st.confirming)put('cfScore',cfg.names[0]+' '+st.score[0]+' – '+st.score[1]+' '+cfg.names[1]);
+  if(st.confirming){
+    put('cfScore',cfg.names[0]+' '+st.score[0]+' – '+st.score[1]+' '+cfg.names[1]);
+    /* a tie with overtime on goes to the next overtime instead of ending the game */
+    const toOT=st.score[0]===st.score[1]&&cfg.otOn&&mode==='game';
+    put('cfQ',toOT?'Tied. Ready for overtime?':'Is the final score right?');
+    put('cfYes',toOT?'Yes, start Overtime '+(st.ot+1):'Yes, end the game');
+    put('cfH',toOT?'Fix any score first if needed. Confirm to start Overtime '+(st.ot+1)+'.':'Fix any score with the +1 and −1 buttons, the arrows, or a controller. Then confirm to end the game and save it.');
+  }
   put('n0',cfg.names[0]);put('n1',cfg.names[1]);
   /* a renamed side still shows which team the voice calls it */
   $('ts0').classList.toggle('off',cfg.names[0].toLowerCase()==='home');$('ts1').classList.toggle('off',cfg.names[1].toLowerCase()==='away');
