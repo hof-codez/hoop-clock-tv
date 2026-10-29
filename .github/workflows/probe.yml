@@ -3,7 +3,7 @@ name: Engine probe
 on:
   push:
     branches: [voice-lab]
-    paths: [tools/probe.py, .github/workflows/probe.yml]
+    paths: [tools/probe.py, tools/probe2.py, .github/workflows/probe.yml]
   workflow_dispatch:
 
 permissions:
@@ -14,7 +14,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        runner: [ubuntu-latest, ubuntu-24.04-arm]
+        runner: [ubuntu-latest]
     runs-on: ${{ matrix.runner }}
     env:
       GH_TOKEN: ${{ github.token }}
@@ -32,10 +32,10 @@ jobs:
         run: |
           curl -sSL -o k.tar.bz2 https://github.com/k2-fsa/sherpa-onnx/releases/download/tts-models/kokoro-multi-lang-v1_0.tar.bz2
           tar xf k.tar.bz2 && du -sh kokoro-multi-lang-v1_0/* > model_files.txt
-      - name: Quantize and time
-        run: python tools/probe.py kokoro-multi-lang-v1_0 out
+      - name: Name test
+        run: python tools/probe2.py kokoro-multi-lang-v1_0 out
       - name: Android engine files
-        if: matrix.runner == 'ubuntu-latest'
+        if: false
         run: |
           V=$(cat sherpa_version.txt | tr -d '[:space:]')
           gh release view "v$V" -R k2-fsa/sherpa-onnx --json assets -q '.assets[].name' | grep -i android > out/android_assets.txt || true
@@ -46,7 +46,7 @@ jobs:
           cp sherpa_version.txt model_files.txt out/
       - name: Save results
         run: |
-          B=probe-results-${{ runner.arch }}
+          B=probe2-results
           git config user.name "Hoop Clock voice lab"; git config user.email "actions@users.noreply.github.com"
           git checkout --orphan "$B"; git rm -rfq --cached . || true
           git add out; git commit -qm "Engine probe (${{ runner.arch }})"; git push -f origin "$B"
