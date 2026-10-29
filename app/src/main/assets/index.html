@@ -475,6 +475,7 @@ function audio(){
   if(actx&&actx.state==='suspended')actx.resume();
   if(actx&&!voxStartedFor[curVox()])decodeVox();
   if(actx&&!voxStartedFor.v1)decodeVox('v1');   /* backup for any line a voice is missing */
+  if(actx&&typeof decodeNameClips==='function'&&!audio._names){audio._names=true;decodeNameClips();}
   return actx;
 }
 let master=null;
@@ -536,7 +537,7 @@ function stopVoice(){
   liveSrc=[];
   clearTimeout(speakTimer);
   if(synth){try{synth.cancel();}catch(e){}}
-  if(hasNative()){try{window.HoopApp.stop();}catch(e){}}
+  if(hasNative()){try{window.HoopApp.stop();if(window.HoopApp.kokoroStop)window.HoopApp.kokoroStop();}catch(e){}}
 }
 function playKeys(keys,delay){
   const a=audio();if(!a)return false;
@@ -788,7 +789,7 @@ function queueScoreCall(){
     if(inCountdown())return;            /* the final countdown wins */
     const [a,b]=st.score;
     if(a===b&&a>0){say(['tied'],'Game is now tied all up.');return;}
-    say(['home'].concat(numKeys(a),['away'],numKeys(b)),sideText(0)+' '+a+', '+sideText(1)+' '+b+'.');
+    say([sideKey(0)].concat(numKeys(a),[sideKey(1)],numKeys(b)),sideText(0)+' '+a+', '+sideText(1)+' '+b+'.');
   },800);
 }
 function startFinal(){
@@ -847,7 +848,7 @@ function announceWinner(){
     say(['tiegame'].concat(numKeys(a),['all']),'The game ends in a tie, '+a+' all.',{delay:0.7});
   }else{
     const w=a>b?0:1,hi=Math.max(a,b),lo=Math.min(a,b);
-    say([w?'away':'home','wins'].concat(numKeys(hi),['to'],numKeys(lo)),sideText(w)+' wins, '+hi+' to '+lo+'.',{delay:0.7});
+    say([sideKey(w),'wins'].concat(numKeys(hi),['to'],numKeys(lo)),sideText(w)+' wins, '+hi+' to '+lo+'.',{delay:0.7});
   }
   render();
 }
@@ -998,6 +999,12 @@ function buildSetup(){
   if(mode==='game')gr.appendChild(toggleRow('Recap after each game','recapAuto'));
   if(hasNative()){
     const ts=document.createElement('div');ts.className='row';
+    if(window.HoopApp.kokoroStatus){
+      const k=kStatus();const ks=document.createElement('div');ks.className='row';
+      const sp=k.rtf>0?' · makes 1 second of speech in '+k.rtf.toFixed(1)+' s':'';
+      ks.innerHTML='<span class="lbl">Built-in Kokoro voice</span><span class="note" style="margin:0">'+esc((k.state||'off')+(k.msg&&k.msg!==k.state?' · '+k.msg:'')+sp)+'</span>';
+      gr.appendChild(ks);
+    }
     ts.innerHTML='<span class="lbl">TV voice status</span><span class="note" style="margin:0">'+esc(ttsStatusText()||(nativeReady()?'ready':'not ready'))+'</span>';
     gr.appendChild(ts);
   }
@@ -1291,6 +1298,46 @@ function line(keys,text,opt){
   if(hasBank(keys)){stopVoice();return playKeys(keys,opt.delay||0);}
   return talk(text,opt.rate,opt.pitch);
 }
+/* ---------- built-in Kokoro voice (TV app 2.0+) ---------- */
+function kStatus(){try{return JSON.parse(window.HoopApp.kokoroStatus()||'{}');}catch(e){return {};}}
+function kReady(){try{return !!(window.HoopApp&&window.HoopApp.kokoroStatus)&&kStatus().state==='ready';}catch(e){return false;}}
+function kokoroOn(){return curVox()==='v4'&&kReady();}
+/* player names in the Kokoro voice, made once on the TV and kept */
+let nameClips={};try{nameClips=JSON.parse(localStorage.getItem('hoopclock.nameclips')||'{}');}catch(e){nameClips={};}
+const namePending=new Set();
+const nameKey=n=>'nm:'+String(n).trim().toLowerCase();
+function sideKey(i){
+  const n=cfg.names[i];
+  if(curVox()==='v4'&&!isDefaultName(i)&&voxBuf.v4[nameKey(n)])return nameKey(n);
+  return i?'away':'home';
+}
+function decodeNameClip(id){
+  const a=actx;const b64=nameClips[id];if(!a||!b64||voxBuf.v4['nm:'+id])return;
+  try{
+    const bin=atob(b64);const u=new Uint8Array(bin.length);for(let i=0;i<bin.length;i++)u[i]=bin.charCodeAt(i);
+    const pr=a.decodeAudioData(u.buffer,b=>{voxBuf.v4['nm:'+id]=b;},()=>{});if(pr&&pr.catch)pr.catch(()=>{});
+  }catch(e){}
+}
+function decodeNameClips(){Object.keys(nameClips).forEach(decodeNameClip);}
+window.hoopKokoroClip=function(id,b64){
+  namePending.delete(id);if(!b64)return;
+  nameClips[id]=b64;try{localStorage.setItem('hoopclock.nameclips',JSON.stringify(nameClips));}catch(e){}
+  audio();decodeNameClip(id);
+};
+function ensureNameClips(){
+  if(!kReady())return false;
+  const want=[cfg.names[0],cfg.names[1]].concat(cfg.nameHist||[]);
+  want.forEach(n=>{
+    const id=String(n).trim().toLowerCase();
+    if(!id||id==='home'||id==='away'||nameClips[id]||namePending.has(id))return;
+    namePending.add(id);
+    try{window.HoopApp.kokoroRender(id,String(n).trim(),1.0);}catch(e){namePending.delete(id);}
+  });
+  return true;
+}
+/* the engine takes a little while to load after the app opens */
+(function waitForKokoro(){let n=0;const t=setInterval(()=>{n++;if(ensureNameClips()||n>120)clearInterval(t);},2000);})();
+
 function canTalk(){return hasNative()?nativeReady():!!synth;}
 function applyNarrator(){
   try{
@@ -1301,6 +1348,7 @@ function applyNarrator(){
 }
 function talk(text,rate,pitch){
   if(!cfg.voice)return false;
+  if(kokoroOn()){try{window.HoopApp.stop();window.HoopApp.kokoroSpeak(text,rate||1.0);return true;}catch(e){}}
   if(nativeReady()){try{const H=window.HoopApp;H.stop();applyNarrator();if(H.setPitch)H.setPitch(pitch||1.0);H.speak(text,rate||1.0);return true;}catch(e){}}
   if(hasNative())return false;   /* inside the TV app, only the TV voice; the browser engine there can be silent */
   if(synth){try{synth.cancel();speakBrowser(text,rate||1.0);return true;}catch(e){}}
@@ -1603,6 +1651,7 @@ function playRecap(g){
 }
 function hideRecap(){
   clearInterval(recapWait);
+  try{window.HoopApp&&window.HoopApp.kokoroStop&&window.HoopApp.kokoroStop();}catch(e){}
   try{window.HoopApp&&window.HoopApp.stop();}catch(e){}
   if(synth){try{synth.cancel();}catch(e){}}
   ['recapCap','recapNote'].forEach(id=>{const el=$(id);if(el)el.hidden=true;});
@@ -1735,6 +1784,7 @@ function rememberName(n){
   cfg.nameHist=[n].concat(cfg.nameHist.filter(x=>x.toLowerCase()!==n.toLowerCase())).slice(0,12);save();
 }
 function setName(side,n){
+  setTimeout(ensureNameClips,50);
   const other=1-side;
   if(cfg.names[other].toLowerCase()===n.toLowerCase())cfg.names[other]=cfg.names[side];
   cfg.names[side]=n;rememberName(n);save();render();updateHint();

@@ -4,3 +4,7 @@ app/build/
 local.properties
 *.iml
 .idea/
+app/src/main/assets/kokoro/
+app/src/main/jniLibs/
+app/src/main/java/com/k2fsa/
+kokoro-cache/

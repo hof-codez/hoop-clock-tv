@@ -8,6 +8,9 @@ on:
 permissions:
   contents: write
 
+env:
+  SHERPA_VERSION: "1.13.8"
+
 jobs:
   build:
     runs-on: ubuntu-latest
@@ -19,20 +22,73 @@ jobs:
           distribution: temurin
           java-version: "17"
 
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
       - name: Check the Android tools
         run: |
           echo "ANDROID_HOME=$ANDROID_HOME"
           ls "$ANDROID_HOME/platforms" "$ANDROID_HOME/build-tools" || true
+
+      - name: Cache the Kokoro voice
+        uses: actions/cache@v4
+        with:
+          path: kokoro-cache
+          key: kokoro-v1_0-int8-michael-1
+
+      - name: Prepare the Kokoro voice (int8, English files only)
+        run: |
+          if [ ! -f kokoro-cache/model.int8.onnx ]; then
+            pip install -q onnx onnxruntime
+            curl -sSL -o k.tar.bz2 https://github.com/k2-fsa/sherpa-onnx/releases/download/tts-models/kokoro-multi-lang-v1_0.tar.bz2
+            tar xf k.tar.bz2
+            python -c "from onnxruntime.quantization import quantize_dynamic,QuantType;quantize_dynamic('kokoro-multi-lang-v1_0/model.onnx','kokoro-multi-lang-v1_0/model.int8.onnx',weight_type=QuantType.QUInt8)"
+            mkdir -p kokoro-cache
+            cd kokoro-multi-lang-v1_0
+            cp -r model.int8.onnx voices.bin tokens.txt lexicon-us-en.txt espeak-ng-data dict LICENSE ../kokoro-cache/
+            cd ..
+          fi
+          mkdir -p app/src/main/assets/kokoro
+          cp -r kokoro-cache/* app/src/main/assets/kokoro/
+          du -sh app/src/main/assets/kokoro
+
+      - name: Add the voice engine libraries
+        run: |
+          V=$SHERPA_VERSION
+          curl -sSL -o so.tar.bz2 "https://github.com/k2-fsa/sherpa-onnx/releases/download/v$V/sherpa-onnx-v$V-android.tar.bz2"
+          mkdir -p so && tar xjf so.tar.bz2 -C so
+          for abi in arm64-v8a armeabi-v7a; do
+            mkdir -p app/src/main/jniLibs/$abi
+            cp so/jniLibs/$abi/libsherpa-onnx-jni.so so/jniLibs/$abi/libonnxruntime.so app/src/main/jniLibs/$abi/
+          done
+          mkdir -p app/src/main/java/com/k2fsa/sherpa/onnx
+          curl -sSL -o app/src/main/java/com/k2fsa/sherpa/onnx/Tts.kt "https://raw.githubusercontent.com/k2-fsa/sherpa-onnx/v$V/sherpa-onnx/kotlin-api/Tts.kt"
+          head -5 app/src/main/java/com/k2fsa/sherpa/onnx/Tts.kt
+          ls -la app/src/main/jniLibs/*
 
       - uses: gradle/actions/setup-gradle@v4
         with:
           gradle-version: "8.7"
 
       - name: Build the app
-        run: gradle assembleRelease --no-daemon --stacktrace
+        run: |
+          set -o pipefail
+          gradle assembleRelease --no-daemon --stacktrace 2>&1 | tee build.log
+
+      - name: Save the build log
+        if: failure()
+        run: |
+          mkdir -p logout
+          cp build.log logout/ 2>/dev/null || echo "no build log" > logout/build.log
+          git config user.name "Hoop Clock build"; git config user.email "actions@users.noreply.github.com"
+          git checkout --orphan build-log; git rm -rfq --cached . || true
+          git add -f logout; git commit -qm "Build log"; git push -f origin build-log
 
       - name: Name the file
-        run: cp app/build/outputs/apk/release/app-release.apk hoop-clock-tv.apk
+        run: |
+          cp app/build/outputs/apk/release/app-release.apk hoop-clock-tv.apk
+          ls -la hoop-clock-tv.apk
 
       - name: Save as a build artifact
         uses: actions/upload-artifact@v4

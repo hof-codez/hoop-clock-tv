@@ -81,6 +81,8 @@ public class MainActivity extends Activity {
         });
 
         setContentView(web);
+        // Load the built-in Kokoro voice in the background.
+        KokoroEngine.INSTANCE.loadAsync(getApplicationContext());
         hideSystemBars();
         web.requestFocus();
 
@@ -209,6 +211,42 @@ public class MainActivity extends Activity {
                 }
             } catch (Exception e) { /* keep the current voice */ }
             return false;
+        }
+
+        /** Built-in Kokoro voice: {state, msg, rtf} as JSON. */
+        @JavascriptInterface
+        public String kokoroStatus() {
+            try {
+                JSONObject o = new JSONObject();
+                o.put("state", KokoroEngine.INSTANCE.getState());
+                o.put("msg", KokoroEngine.INSTANCE.getMessage());
+                o.put("rtf", (double) KokoroEngine.INSTANCE.getLastRtf());
+                return o.toString();
+            } catch (Exception e) {
+                return "{\"state\":\"error\"}";
+            }
+        }
+
+        @JavascriptInterface
+        public boolean kokoroSpeak(String text, float speed) {
+            if (text == null) return false;
+            return KokoroEngine.INSTANCE.speak(text, speed > 0 ? speed : 1.0f);
+        }
+
+        @JavascriptInterface
+        public void kokoroStop() {
+            KokoroEngine.INSTANCE.stop();
+        }
+
+        /** Render a short line in the background, then hand it to window.hoopKokoroClip(id, base64Wav). */
+        @JavascriptInterface
+        public void kokoroRender(String id, String text, float speed) {
+            new Thread(() -> {
+                String b64 = null;
+                try { b64 = KokoroEngine.INSTANCE.renderWavBase64(text, speed > 0 ? speed : 1.0f); } catch (Throwable t) { }
+                final String js = "window.hoopKokoroClip&&window.hoopKokoroClip(" + JSONObject.quote(id) + "," + (b64 == null ? "null" : "\"" + b64 + "\"") + ")";
+                runOnUiThread(() -> web.evaluateJavascript(js, null));
+            }).start();
         }
 
         @JavascriptInterface
