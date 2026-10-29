@@ -1,0 +1,16 @@
+total 178420
+drwxr-xr-x 4 runner runner      4096 Oct 26 09:09 .
+drwxr-xr-x 8 runner runner      4096 Oct 29 19:23 ..
+-rw-r--r-- 1 runner runner     11358 Oct 26 09:09 LICENSE
+-rw-r--r-- 1 runner runner       114 Oct 26 09:09 README.md
+-rw-r--r-- 1 runner runner     59154 Oct 26 09:09 date-zh.fst
+drwxr-xr-x 3 runner runner      4096 Feb 18  2025 dict
+drwxr-xr-x 4 runner runner      4096 Nov 28  2023 espeak-ng-data
+-rw-r--r-- 1 runner runner   6366635 Oct 26 09:09 lexicon-gb-en.txt
+-rw-r--r-- 1 runner runner   5956885 Oct 26 09:09 lexicon-us-en.txt
+-rw-r--r-- 1 runner runner   2120131 Oct 26 09:09 lexicon-zh.txt
+-rw-r--r-- 1 runner runner 114203914 Oct 26 09:09 model.int8.onnx
+-rw-r--r-- 1 runner runner     64482 Oct 26 09:09 number-zh.fst
+-rw-r--r-- 1 runner runner     88630 Oct 26 09:09 phone-zh.fst
+-rw-r--r-- 1 runner runner      1111 Oct 26 09:09 tokens.txt
+-rw-r--r-- 1 runner runner  53790720 Oct 26 09:09 voices.bin
