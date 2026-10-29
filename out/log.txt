@@ -1,0 +1,40 @@
+{
+ "us_only": {
+  "Jordell": 0.77,
+  "Kamryn": 0.78,
+  "HofCodez": 1.12,
+  "Fells": 0.69,
+  "Dad": 0.62,
+  "basketball": 0.98,
+  "Ja'Kobe": 0.9,
+  "Xzavier": 0.95,
+  "the Iron Bolts": 1.2,
+  "sentence: Jordell three, Dad two.": 1.71,
+  "sentence: Home three, Away two.": 1.58
+ },
+ "us_plus_zh": {
+  "Jordell": 0.77,
+  "Kamryn": 0.78,
+  "HofCodez": 1.12,
+  "Fells": 0.69,
+  "Dad": 0.62,
+  "basketball": 0.98,
+  "Ja'Kobe": 0.9,
+  "Xzavier": 0.95,
+  "the Iron Bolts": 1.2,
+  "sentence: Jordell three, Dad two.": 1.71,
+  "sentence: Home three, Away two.": 1.58
+ },
+ "in_lexicon": {
+  "Jordell": false,
+  "Kamryn": false,
+  "HofCodez": false,
+  "Fells": true,
+  "Dad": true,
+  "basketball": true,
+  "Ja'Kobe": false,
+  "Xzavier": false,
+  "the Iron Bolts": false
+ },
+ "version": "1.13.8"
+}
