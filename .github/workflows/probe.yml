@@ -1,0 +1,52 @@
+name: Engine probe
+
+on:
+  push:
+    branches: [voice-lab]
+    paths: [tools/probe.py, .github/workflows/probe.yml]
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  probe:
+    strategy:
+      fail-fast: false
+      matrix:
+        runner: [ubuntu-latest, ubuntu-24.04-arm]
+    runs-on: ${{ matrix.runner }}
+    env:
+      GH_TOKEN: ${{ github.token }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - name: Install
+        run: |
+          sudo apt-get update -q && sudo apt-get install -y -q ffmpeg
+          pip install sherpa-onnx numpy onnx onnxruntime
+          python -c "import sherpa_onnx;print(sherpa_onnx.__version__)" | tee sherpa_version.txt
+      - name: Get the model
+        run: |
+          curl -sSL -o k.tar.bz2 https://github.com/k2-fsa/sherpa-onnx/releases/download/tts-models/kokoro-multi-lang-v1_0.tar.bz2
+          tar xf k.tar.bz2 && du -sh kokoro-multi-lang-v1_0/* > model_files.txt
+      - name: Quantize and time
+        run: python tools/probe.py kokoro-multi-lang-v1_0 out
+      - name: Android engine files
+        if: matrix.runner == 'ubuntu-latest'
+        run: |
+          V=$(cat sherpa_version.txt | tr -d '[:space:]')
+          gh release view "v$V" -R k2-fsa/sherpa-onnx --json assets -q '.assets[].name' | grep -i android > out/android_assets.txt || true
+          A=$(grep -E '^sherpa-onnx-v[0-9.]+-android\.tar\.bz2$' out/android_assets.txt | head -1)
+          echo "asset: $A" >> out/android_assets.txt
+          if [ -n "$A" ]; then gh release download "v$V" -R k2-fsa/sherpa-onnx -p "$A" && tar tjf "$A" | head -80 > out/android_tar_listing.txt; fi
+          curl -sSL "https://raw.githubusercontent.com/k2-fsa/sherpa-onnx/v$V/sherpa-onnx/kotlin-api/Tts.kt" -o out/Tts.kt || true
+          cp sherpa_version.txt model_files.txt out/
+      - name: Save results
+        run: |
+          B=probe-results-${{ runner.arch }}
+          git config user.name "Hoop Clock voice lab"; git config user.email "actions@users.noreply.github.com"
+          git checkout --orphan "$B"; git rm -rfq --cached . || true
+          git add out; git commit -qm "Engine probe (${{ runner.arch }})"; git push -f origin "$B"
