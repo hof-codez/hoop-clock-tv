@@ -1,0 +1,12 @@
+sherpa-onnx-v2.0.1-android-aarch64-termux-shared.tar.bz2
+sherpa-onnx-v2.0.1-android-aarch64-termux-static.tar.bz2
+sherpa-onnx-v2.0.1-android-armeabi-v7a-termux-shared.tar.bz2
+sherpa-onnx-v2.0.1-android-armeabi-v7a-termux-static.tar.bz2
+sherpa-onnx-v2.0.1-android-rknn.tar.bz2
+sherpa-onnx-v2.0.1-android-static-link-onnxruntime.tar.bz2
+sherpa-onnx-v2.0.1-android-x86-termux-shared.tar.bz2
+sherpa-onnx-v2.0.1-android-x86-termux-static.tar.bz2
+sherpa-onnx-v2.0.1-android-x86_64-termux-shared.tar.bz2
+sherpa-onnx-v2.0.1-android-x86_64-termux-static.tar.bz2
+sherpa-onnx-v2.0.1-android.tar.bz2
+asset: sherpa-onnx-v2.0.1-android.tar.bz2

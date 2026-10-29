@@ -1,0 +1,13 @@
+12K	kokoro-multi-lang-v1_0/LICENSE
+4.0K	kokoro-multi-lang-v1_0/README.md
+60K	kokoro-multi-lang-v1_0/date-zh.fst
+14M	kokoro-multi-lang-v1_0/dict
+19M	kokoro-multi-lang-v1_0/espeak-ng-data
+6.1M	kokoro-multi-lang-v1_0/lexicon-gb-en.txt
+5.7M	kokoro-multi-lang-v1_0/lexicon-us-en.txt
+2.3M	kokoro-multi-lang-v1_0/lexicon-zh.txt
+311M	kokoro-multi-lang-v1_0/model.onnx
+64K	kokoro-multi-lang-v1_0/number-zh.fst
+88K	kokoro-multi-lang-v1_0/phone-zh.fst
+4.0K	kokoro-multi-lang-v1_0/tokens.txt
+27M	kokoro-multi-lang-v1_0/voices.bin
