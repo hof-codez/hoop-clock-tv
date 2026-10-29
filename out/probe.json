@@ -1,0 +1,36 @@
+{
+ "sizes_mb": {
+  "phone-zh.fst": 0.1,
+  "model.int8.onnx": 114.2,
+  "number-zh.fst": 0.1,
+  "lexicon-us-en.txt": 6.0,
+  "model.onnx": 325.6,
+  "README.md": 0.0,
+  "lexicon-zh.txt": 2.4,
+  "LICENSE": 0.0,
+  "date-zh.fst": 0.1,
+  "lexicon-gb-en.txt": 6.4,
+  "voices.bin": 28.2,
+  "tokens.txt": 0.0
+ },
+ "model.onnx x1": {
+  "audio_sec": 9.07,
+  "compute_sec": 15.66,
+  "rtf": 1.727
+ },
+ "model.onnx x4": {
+  "audio_sec": 9.07,
+  "compute_sec": 4.6,
+  "rtf": 0.507
+ },
+ "model.int8.onnx x1": {
+  "audio_sec": 12.68,
+  "compute_sec": 9.96,
+  "rtf": 0.786
+ },
+ "model.int8.onnx x4": {
+  "audio_sec": 9.13,
+  "compute_sec": 7.18,
+  "rtf": 0.786
+ }
+}
