@@ -836,8 +836,8 @@ function announceWinner(){
   if(a===b&&cfg.otOn&&mode==='game'){startOvertime();return;}
   saveGame(true);
   clearTimeout(recapTimer);
-  if(cfg.recapAuto&&mode==='game'&&canTalk()&&games[0]&&games[0].finished){
-    const g=games[0];recapTimer=setTimeout(()=>{if(st.phase==='final'&&!st.running)playRecap(g);},5000);
+  if(cfg.recapAuto&&mode==='game'&&games[0]&&games[0].finished){
+    const g=games[0];recapTimer=setTimeout(()=>{if(st.phase==='final'&&!st.running)talk(recapFor(g),1.04,0.94);},5000);
   }
   if(cfg.beeps){tone(784,0.14,'triangle',0.24);tone(988,0.14,'triangle',0.24,0.15);tone(1319,0.3,'triangle',0.24,0.3);}
   if(a===b){
@@ -993,6 +993,11 @@ function buildSetup(){
   gr.appendChild(toggleRow('Minute dings','minuteDings'));
   if(mode==='game')gr.appendChild(toggleRow('Score calls','scoreCalls'));
   if(mode==='game')gr.appendChild(toggleRow('Recap after each game','recapAuto'));
+  if(hasNative()){
+    const ts=document.createElement('div');ts.className='row';
+    ts.innerHTML='<span class="lbl">TV voice status</span><span class="note" style="margin:0">'+esc(ttsStatusText()||(nativeReady()?'ready':'not ready'))+'</span>';
+    gr.appendChild(ts);
+  }
   const NV=narratorList();
   if(NV.length){
     const names=NV.map(v=>v.name);
@@ -1276,7 +1281,7 @@ function buildSteps(wk){
 }
 function wkMinutes(wk){return Math.max(1,Math.round(buildSteps(wk).reduce((a,x)=>a+x.dur,0)/60));}
 /* any-text speech: the TV voice in the app, the browser voice elsewhere; screen text only if neither */
-function canTalk(){return nativeReady()||!!synth;}
+function canTalk(){return hasNative()?nativeReady():!!synth;}
 function applyNarrator(){
   try{
     const H=window.HoopApp;if(!H||!H.setVoice||!nativeReady())return;
@@ -1287,6 +1292,7 @@ function applyNarrator(){
 function talk(text,rate,pitch){
   if(!cfg.voice)return false;
   if(nativeReady()){try{const H=window.HoopApp;H.stop();applyNarrator();if(H.setPitch)H.setPitch(pitch||1.0);H.speak(text,rate||1.0);return true;}catch(e){}}
+  if(hasNative())return false;   /* inside the TV app, only the TV voice; the browser engine there can be silent */
   if(synth){try{synth.cancel();speakBrowser(text,rate||1.0);return true;}catch(e){}}
   return false;
 }
@@ -1552,12 +1558,45 @@ function recapScript(g){
   out.push(pick(['That is your recap. Great game, everybody.','And that is a wrap. Run it back next time.','Good game. See you next time on Hoop Clock.']));
   return out.join(' ');
 }
+/* each game keeps the recap it was given, so replaying it says the same thing */
+function recapFor(g){
+  if(!g.recap){g.recap=recapScript(g);saveGames();}
+  return g.recap;
+}
+let recapWait=null;
+function ttsStatusText(){try{return window.HoopApp&&window.HoopApp.ttsStatus?window.HoopApp.ttsStatus():'';}catch(e){return '';}}
 function playRecap(g){
-  const text=recapScript(g);
-  const cap=document.getElementById('recapCap');if(cap){cap.hidden=false;cap.textContent=text;}
-  audio();
-  if(!talk(text,1.04,0.94)&&!cap){/* no speech here: nothing else to show on the scoreboard */}
+  const text=recapFor(g);
+  const cap=$('recapCap'),note=$('recapNote');
+  if(cap){cap.hidden=false;cap.textContent=text;}
+  if($('recapHide'))$('recapHide').hidden=false;
+  if(note)note.hidden=true;
+  audio();clearInterval(recapWait);
+  if(talk(text,1.04,0.94))return text;
+  /* the TV voice can take a few seconds to start after the app opens */
+  let tries=0;
+  if(note){note.hidden=false;note.textContent='Waiting for the TV voice…';}
+  recapWait=setInterval(()=>{
+    tries++;
+    if(talk(text,1.04,0.94)){clearInterval(recapWait);if(note)note.hidden=true;return;}
+    if(tries>=10){
+      clearInterval(recapWait);
+      if(note){
+        const st2=ttsStatusText();
+        note.textContent=hasNative()?'The TV voice is not available, so the recap can only be shown. TV voice status: '+(st2||'unknown')+'. Check the TV settings under Accessibility, then Text to speech, and make sure an English voice is installed.'
+          :'Narration needs the Hoop Clock TV app. In a web browser the recap is shown as text.';
+      }
+    }
+  },500);
   return text;
+}
+function hideRecap(){
+  clearInterval(recapWait);
+  try{window.HoopApp&&window.HoopApp.stop();}catch(e){}
+  if(synth){try{synth.cancel();}catch(e){}}
+  ['recapCap','recapNote'].forEach(id=>{const el=$(id);if(el)el.hidden=true;});
+  if($('recapHide'))$('recapHide').hidden=true;
+  if($('recapPlay'))$('recapPlay').focus();
 }
 
 /* ---------- game history ---------- */
@@ -1602,6 +1641,7 @@ let histView=null; /* null = list, number = game index */
 let histArm=null;
 function openHist(){histView=null;renderHist();$('hist').hidden=false;const f=$('histBody').querySelector('button');(f||$('histBack')).focus();}
 function histBack(){
+  hideRecap();
   if(histView!==null){const i=histView;histView=null;renderHist();const r=$('histBody').querySelector('[data-g="'+i+'"]');(r||$('histBack')).focus();return;}
   $('hist').hidden=true;$('bHist').focus();
 }
@@ -1646,10 +1686,13 @@ function renderHist(){
   body.appendChild(sum);
   if(g.finished){
     const ra=document.createElement('div');ra.className='hactions';
-    const rb=document.createElement('button');rb.className='ctl primary';rb.textContent=canTalk()?'Play recap':'Show recap';
-    rb.onclick=()=>playRecap(g);ra.appendChild(rb);body.appendChild(ra);
+    const rb=document.createElement('button');rb.className='ctl primary';rb.id='recapPlay';rb.textContent='Play recap';
+    const hb=document.createElement('button');hb.className='ctl';hb.id='recapHide';hb.textContent='Hide recap';hb.hidden=true;
+    rb.onclick=()=>playRecap(g);hb.onclick=hideRecap;
+    ra.appendChild(rb);ra.appendChild(hb);body.appendChild(ra);
   }
   const cap=document.createElement('p');cap.className='recap-cap';cap.id='recapCap';cap.hidden=true;body.appendChild(cap);
+  const capNote=document.createElement('p');capNote.className='note';capNote.id='recapNote';capNote.hidden=true;body.appendChild(capNote);
   let leads=0,ties=0;{let ll=0,pd=0;g.events.forEach(e=>{const d=e.a-e.b,ld=Math.sign(d);
     if(ld!==0&&ll!==0&&ld!==ll)leads++;if(ld===0&&e.a+e.b>0&&pd!==0&&e.k!=='undo')ties++;if(ld!==0)ll=ld;pd=d;});}
   const st2=document.createElement('p');st2.className='note';

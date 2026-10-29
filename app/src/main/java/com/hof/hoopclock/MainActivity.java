@@ -44,13 +44,8 @@ public class MainActivity extends Activity {
         super.onCreate(savedInstanceState);
         getWindow().addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON);
 
-        // The TV's own speech engine, so the clock can say player names.
-        tts = new TextToSpeech(this, status -> {
-            if (status == TextToSpeech.SUCCESS) {
-                int r = tts.setLanguage(Locale.US);
-                ttsOk = r != TextToSpeech.LANG_MISSING_DATA && r != TextToSpeech.LANG_NOT_SUPPORTED;
-            }
-        });
+        // The TV's own speech engine, so the clock can say player names and recaps.
+        startTts(null);
 
         web = new WebView(this);
         web.setBackgroundColor(Color.rgb(16, 20, 26));
@@ -131,7 +126,38 @@ public class MainActivity extends Activity {
         });
     }
 
+    private volatile String ttsInfo = "starting";
+    private boolean triedGoogle = false;
+
+    /** Start the default engine; if it fails, try Google's engine by name once. */
+    private void startTts(String enginePkg) {
+        TextToSpeech.OnInitListener listener = status -> {
+            if (status == TextToSpeech.SUCCESS) {
+                int r = tts.setLanguage(Locale.US);
+                if (r == TextToSpeech.LANG_MISSING_DATA || r == TextToSpeech.LANG_NOT_SUPPORTED) {
+                    r = tts.setLanguage(Locale.getDefault());
+                }
+                ttsOk = r != TextToSpeech.LANG_MISSING_DATA && r != TextToSpeech.LANG_NOT_SUPPORTED;
+                ttsInfo = (ttsOk ? "ready" : "no English voice") + " (" + tts.getDefaultEngine() + ")";
+            } else {
+                ttsOk = false;
+                ttsInfo = "engine failed to start" + (enginePkg != null ? " (" + enginePkg + ")" : "");
+                if (!triedGoogle) {
+                    triedGoogle = true;
+                    try { if (tts != null) tts.shutdown(); } catch (Exception e) { }
+                    startTts("com.google.android.tts");
+                }
+            }
+        };
+        tts = enginePkg == null ? new TextToSpeech(this, listener) : new TextToSpeech(this, listener, enginePkg);
+    }
+
     private class AppBridge {
+        @JavascriptInterface
+        public String ttsStatus() {
+            return ttsInfo;
+        }
+
         @JavascriptInterface
         public void exit() {
             runOnUiThread(MainActivity.this::finishAndRemoveTask);
