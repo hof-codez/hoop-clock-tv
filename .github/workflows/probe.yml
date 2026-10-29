@@ -26,7 +26,7 @@ jobs:
       - name: Install
         run: |
           sudo apt-get update -q && sudo apt-get install -y -q ffmpeg
-          pip install sherpa-onnx numpy onnx onnxruntime
+          pip install 'sherpa-onnx<2' numpy onnx onnxruntime
           python -c "import sherpa_onnx;print(sherpa_onnx.__version__)" | tee sherpa_version.txt
       - name: Get the model
         run: |
