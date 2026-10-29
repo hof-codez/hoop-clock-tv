@@ -33,7 +33,9 @@ jobs:
           curl -sSL -o k.tar.bz2 https://github.com/k2-fsa/sherpa-onnx/releases/download/tts-models/kokoro-multi-lang-v1_0.tar.bz2
           tar xf k.tar.bz2 && du -sh kokoro-multi-lang-v1_0/* > model_files.txt
       - name: Name test
-        run: python tools/probe2.py kokoro-multi-lang-v1_0 out
+        run: |
+          mkdir -p out
+          python tools/probe2.py kokoro-multi-lang-v1_0 out > out/log.txt 2>&1 || echo "exit $?" >> out/log.txt
       - name: Android engine files
         if: false
         run: |
@@ -45,6 +47,7 @@ jobs:
           curl -sSL "https://raw.githubusercontent.com/k2-fsa/sherpa-onnx/v$V/sherpa-onnx/kotlin-api/Tts.kt" -o out/Tts.kt || true
           cp sherpa_version.txt model_files.txt out/
       - name: Save results
+        if: always()
         run: |
           B=probe2-results
           git config user.name "Hoop Clock voice lab"; git config user.email "actions@users.noreply.github.com"

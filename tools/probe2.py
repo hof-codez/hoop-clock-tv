@@ -8,12 +8,16 @@ def mk(lexicon, lang=""):
 words = ["Jordell", "Kamryn", "HofCodez", "Fells", "Dad", "basketball", "Ja'Kobe", "Xzavier", "the Iron Bolts"]
 lex_words = set(l.split()[0].lower() for l in open(f"{D}/lexicon-us-en.txt", encoding="utf-8") if l.strip())
 rep = {}
+import traceback
 for label, lex, lang in [("us_only", f"{D}/lexicon-us-en.txt", "en-us"), ("us_plus_zh", f"{D}/lexicon-us-en.txt,{D}/lexicon-zh.txt", "")]:
     try: tts = mk(lex, lang)
     except Exception as e: rep[label] = "load failed: " + str(e); continue
     r = {}
     for w in words:
-        a = tts.generate(w, sid=16, speed=1.0); r[w] = round(len(a.samples) / a.sample_rate, 2)
+        try:
+            a = tts.generate(w, sid=16, speed=1.0); r[w] = round(len(a.samples) / a.sample_rate, 2)
+        except Exception as e:
+            r[w] = "error: " + str(e)[:120]
     a = tts.generate("Jordell three, Dad two.", sid=16); r["sentence: Jordell three, Dad two."] = round(len(a.samples) / a.sample_rate, 2)
     a = tts.generate("Home three, Away two.", sid=16); r["sentence: Home three, Away two."] = round(len(a.samples) / a.sample_rate, 2)
     rep[label] = r
