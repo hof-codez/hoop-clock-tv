@@ -1,0 +1,44 @@
+name: Voice lab
+
+on:
+  push:
+    branches: [voice-lab]
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  lab:
+    strategy:
+      fail-fast: false
+      matrix:
+        runner: [ubuntu-latest, ubuntu-24.04-arm]
+    runs-on: ${{ matrix.runner }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - name: Install
+        run: |
+          sudo apt-get update -q && sudo apt-get install -y -q ffmpeg
+          pip install sherpa-onnx numpy
+      - name: Get the Kokoro model
+        run: |
+          curl -sSL -o k.tar.bz2 https://github.com/k2-fsa/sherpa-onnx/releases/download/tts-models/kokoro-multi-lang-v1_0.tar.bz2
+          tar xf k.tar.bz2 && ls -la kokoro-multi-lang-v1_0 && du -sh kokoro-multi-lang-v1_0
+          head -c 3000 kokoro-multi-lang-v1_0/LICENSE || true
+      - name: Render samples
+        run: python tools/voice_lab.py kokoro-multi-lang-v1_0 out ${{ runner.arch }}
+      - name: Save results to a branch
+        run: |
+          cp kokoro-multi-lang-v1_0/LICENSE out/MODEL_LICENSE.txt || true
+          B=voice-lab-results-${{ runner.arch }}
+          git config user.name "Hoop Clock voice lab"
+          git config user.email "actions@users.noreply.github.com"
+          git checkout --orphan "$B"
+          git rm -rfq --cached . || true
+          git add out
+          git commit -qm "Voice lab results (${{ runner.arch }})"
+          git push -f origin "$B"
