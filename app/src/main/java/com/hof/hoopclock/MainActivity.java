@@ -4,6 +4,7 @@ import android.app.Activity;
 import android.graphics.Color;
 import android.os.Bundle;
 import android.speech.tts.TextToSpeech;
+import android.speech.tts.Voice;
 import android.view.KeyEvent;
 import android.view.View;
 import android.view.WindowManager;
@@ -17,6 +18,9 @@ import android.webkit.WebViewClient;
 import android.widget.Toast;
 
 import java.util.Locale;
+
+import org.json.JSONArray;
+import org.json.JSONObject;
 
 /**
  * Full-screen Hoop Clock for Android TV.
@@ -148,6 +152,42 @@ public class MainActivity extends Activity {
         @JavascriptInterface
         public void stop() {
             if (tts != null) tts.stop();
+        }
+
+        /** English voices on this TV, as JSON: [{name, locale, quality, network}] */
+        @JavascriptInterface
+        public String voices() {
+            JSONArray out = new JSONArray();
+            if (!ttsOk) return out.toString();
+            try {
+                for (Voice v : tts.getVoices()) {
+                    if (v.getLocale() == null || !"en".equals(v.getLocale().getLanguage())) continue;
+                    if (v.getFeatures() != null && v.getFeatures().contains("notInstalled")) continue;
+                    JSONObject o = new JSONObject();
+                    o.put("name", v.getName());
+                    o.put("locale", v.getLocale().toString());
+                    o.put("quality", v.getQuality());
+                    o.put("network", v.isNetworkConnectionRequired());
+                    out.put(o);
+                }
+            } catch (Exception e) { /* return what we have */ }
+            return out.toString();
+        }
+
+        @JavascriptInterface
+        public boolean setVoice(String name) {
+            if (!ttsOk || name == null) return false;
+            try {
+                for (Voice v : tts.getVoices()) {
+                    if (name.equals(v.getName())) { tts.setVoice(v); return true; }
+                }
+            } catch (Exception e) { /* keep the current voice */ }
+            return false;
+        }
+
+        @JavascriptInterface
+        public void setPitch(float pitch) {
+            if (ttsOk) tts.setPitch(pitch > 0 ? pitch : 1.0f);
         }
     }
 

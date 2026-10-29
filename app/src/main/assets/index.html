@@ -255,6 +255,7 @@ body.timer .glabel{font-size:clamp(16px,3.4vh,34px)}
 .ev.tie .ed b{color:var(--focus)}
 .ev.undo{opacity:.7}
 .hactions{display:flex;gap:12px;flex-wrap:wrap}
+.recap-cap{margin:0;background:var(--panel);border:2px solid var(--line);border-radius:10px;padding:12px 16px;font-size:clamp(15px,2.6vh,24px);line-height:1.45;max-width:70ch}
 @media (max-width:760px){.hrow{grid-template-columns:1fr}}
 @media (prefers-reduced-motion:reduce){.shot.hot{animation:none}.game{transition:none}}
 </style>
@@ -426,7 +427,7 @@ const CALL_OPTS=[0,5,10];
 const COUNT_OPTS=[10,15,20,30];
 
 const DEF={quarters:4,lengths:[300,300,300,300,300,300],shot:24,brk:60,minuteCall:0,countFrom:20,
-  voice:true,voiceSrc:'clips3',minuteDings:true,beeps:true,pauseOnShot:true,arrowScore:true,arrowPts:1,shotOn:true,cfgv:4,scoreCalls:true,otOn:true,ot1:180,ot2:60,voicePicked:false,names:['Home','Away'],nameHist:['Home','Away'],
+  voice:true,voiceSrc:'clips3',minuteDings:true,beeps:true,pauseOnShot:true,arrowScore:true,arrowPts:1,shotOn:true,cfgv:4,scoreCalls:true,recapAuto:true,narrator:'',otOn:true,ot1:180,ot2:60,voicePicked:false,names:['Home','Away'],nameHist:['Home','Away'],
   binds:{p0a:{s:'k:1',l:'1'},p0b:{s:'k:2',l:'2'},p0c:{s:'k:3',l:'3'},p1a:{s:'k:7',l:'7'},p1b:{s:'k:8',l:'8'},p1c:{s:'k:9',l:'9'},
     play:{s:'k:5',l:'5'},shot:{s:'k:0',l:'0'},undo:{s:'k:-',l:'-'}}};
 let cfg=load();
@@ -743,7 +744,7 @@ function newGame(force){
   }
   clearTimeout(newArm);newArm=null;b.textContent='New game';b.classList.remove('warn');
   setRunning(false);stopVoice();
-  clearTimeout(finalTimer);clearTimeout(scoreTimer);
+  clearTimeout(finalTimer);clearTimeout(scoreTimer);clearTimeout(recapTimer);
   if(st.started&&!st.saved&&st.events.length)saveGame(false);
   $('confirm').hidden=true;
   freshState();hist=[];render();
@@ -834,6 +835,10 @@ function announceWinner(){
   const [a,b]=st.score;
   if(a===b&&cfg.otOn&&mode==='game'){startOvertime();return;}
   saveGame(true);
+  clearTimeout(recapTimer);
+  if(cfg.recapAuto&&mode==='game'&&canTalk()&&games[0]&&games[0].finished){
+    const g=games[0];recapTimer=setTimeout(()=>{if(st.phase==='final'&&!st.running)playRecap(g);},5000);
+  }
   if(cfg.beeps){tone(784,0.14,'triangle',0.24);tone(988,0.14,'triangle',0.24,0.15);tone(1319,0.3,'triangle',0.24,0.3);}
   if(a===b){
     say(['tiegame'].concat(numKeys(a),['all']),'The game ends in a tie, '+a+' all.',{delay:0.7});
@@ -987,6 +992,18 @@ function buildSetup(){
     ()=>{cfg.voiceSrc=cycle(VS,cfg.voiceSrc,-1);cfg.voicePicked=true;decodeVox();},()=>{cfg.voiceSrc=cycle(VS,cfg.voiceSrc,1);cfg.voicePicked=true;decodeVox();},'vV'));
   gr.appendChild(toggleRow('Minute dings','minuteDings'));
   if(mode==='game')gr.appendChild(toggleRow('Score calls','scoreCalls'));
+  if(mode==='game')gr.appendChild(toggleRow('Recap after each game','recapAuto'));
+  const NV=narratorList();
+  if(NV.length){
+    const names=NV.map(v=>v.name);
+    if(!cfg.narrator||!names.includes(cfg.narrator))cfg.narrator=defaultNarrator()||names[0];
+    gr.appendChild(stepper('Recap narrator',narratorLabel(cfg.narrator),
+      ()=>{cfg.narrator=cycle(names,cfg.narrator,-1);},()=>{cfg.narrator=cycle(names,cfg.narrator,1);},'vNar'));
+    const tn=document.createElement('div');tn.className='row';
+    tn.innerHTML='<span class="lbl">Hear the narrator</span><button class="tog">Test narrator</button>';
+    tn.querySelector('button').onclick=()=>talk('Welcome back to the Hoop Clock recap. What a game we had tonight.',1.04,0.94);
+    gr.appendChild(tn);
+  }
   gr.appendChild(toggleRow('Beeps and whistle','beeps'));
   if(mode==='game')gr.appendChild(toggleRow('Pause on shot clock','pauseOnShot'));
   const t=document.createElement('div');t.className='row';
@@ -1259,10 +1276,18 @@ function buildSteps(wk){
 }
 function wkMinutes(wk){return Math.max(1,Math.round(buildSteps(wk).reduce((a,x)=>a+x.dur,0)/60));}
 /* any-text speech: the TV voice in the app, the browser voice elsewhere; screen text only if neither */
-function talk(text){
+function canTalk(){return nativeReady()||!!synth;}
+function applyNarrator(){
+  try{
+    const H=window.HoopApp;if(!H||!H.setVoice||!nativeReady())return;
+    if(!cfg.narrator){const pick=defaultNarrator();if(pick){cfg.narrator=pick;save();}}
+    if(cfg.narrator)H.setVoice(cfg.narrator);
+  }catch(e){}
+}
+function talk(text,rate,pitch){
   if(!cfg.voice)return false;
-  if(nativeReady()){try{window.HoopApp.stop();window.HoopApp.speak(text,1.0);return true;}catch(e){}}
-  if(synth){try{synth.cancel();speakBrowser(text,1.0);return true;}catch(e){}}
+  if(nativeReady()){try{const H=window.HoopApp;H.stop();applyNarrator();if(H.setPitch)H.setPitch(pitch||1.0);H.speak(text,rate||1.0);return true;}catch(e){}}
+  if(synth){try{synth.cancel();speakBrowser(text,rate||1.0);return true;}catch(e){}}
   return false;
 }
 function countClip(n){if(!cfg.voice||!playKeys(['n'+n],0))beep();}
@@ -1438,6 +1463,103 @@ function trainKey(e){
 }
 $('bTrain').onclick=openTrain;
 
+/* ---------- game recap (SportsCenter style) ---------- */
+let recapTimer=null;
+function narratorList(){
+  try{const H=window.HoopApp;if(!H||!H.voices||!nativeReady())return [];
+    return JSON.parse(H.voices()||'[]').sort((x,y)=>(x.network-y.network)||x.name.localeCompare(y.name));}catch(e){return [];}
+}
+const MALE_HINT=/en-us-x-(iom|iol|tpd)|en-gb-x-(rjs|gbd)|en-au-x-(aub|aud)/i;
+function defaultNarrator(){
+  const L=narratorList();if(!L.length)return '';
+  const m=L.find(v=>MALE_HINT.test(v.name)&&!v.network)||L.find(v=>MALE_HINT.test(v.name));
+  return m?m.name:'';
+}
+function narratorLabel(n){
+  const L=narratorList();const i=L.findIndex(v=>v.name===n);if(i<0)return 'Default';
+  const v=L[i];const loc=(v.locale||'').replace('_','-');
+  return 'Voice '+(i+1)+' · '+loc+(MALE_HINT.test(v.name)?' · male':'');
+}
+const PERIOD_WORD=['first','second','third','fourth','fifth','sixth'];
+function periodOf(e){
+  if(e.ot)return e.ot===1?'overtime':'the '+(PERIOD_WORD[e.ot-1]||e.ot)+' overtime';
+  return 'the '+PERIOD_WORD[e.q]+' quarter';
+}
+function whenOf(e){
+  if(e.fin)return 'right after the final horn';
+  const s=Math.max(0,Math.ceil(e.ms/1000));
+  const left=s<60?s+' seconds':Math.floor(s/60)+':'+String(s%60).padStart(2,'0');
+  return 'with '+left+' left in '+periodOf(e);
+}
+function spoken(n){const l=String(n).toLowerCase();return l==='home'?'the home team':(l==='away'?'the away team':n);}
+const capf=x=>x.charAt(0).toUpperCase()+x.slice(1);
+const pick=a=>a[Math.floor(Math.random()*a.length)];
+function recapScript(g){
+  const N=i=>spoken(g.names[i]);
+  const [a,b]=g.score,w=g.winner,l=1-w,margin=Math.abs(a-b),ev=g.events||[];
+  const out=[];
+  out.push(pick(['Welcome back to the Hoop Clock recap.','Here is your Hoop Clock highlight recap.','Let us run it back. Hoop Clock recap time.']));
+  if(!ev.length){out.push('No points on the board tonight. The defense wins this one.');return out.join(' ');}
+  if(w<0)out.push('This one ended all square, '+a+' to '+b+'.');
+  else{
+    const hi=Math.max(a,b),lo=Math.min(a,b);
+    if(g.ot)out.push(capf(N(w))+' outlasted '+N(l)+(g.ot>1?' in '+g.ot+' overtimes, ':' in overtime, ')+hi+' to '+lo+'.');
+    else if(margin<=2)out.push(capf(N(w))+' edged '+N(l)+' in a nail biter, '+hi+' to '+lo+'.');
+    else if(margin>=10)out.push(capf(N(w))+' rolled past '+N(l)+', '+hi+' to '+lo+'.');
+    else out.push(capf(N(w))+' took down '+N(l)+', '+hi+' to '+lo+'.');
+  }
+  /* walk the play-by-play */
+  let lastLeader=0,prevDiff=0,changes=0,ties=0;
+  const big=[{m:0,e:null},{m:0,e:null}],down=[0,0],took=[null,null],per={};
+  let run={side:-1,pts:0,e:null},best={side:-1,pts:0,e:null};
+  ev.forEach(e=>{
+    const diff=e.a-e.b,leader=Math.sign(diff);
+    if(leader!==0&&leader!==Math.sign(prevDiff))took[leader>0?0:1]=e;
+    if(leader!==0&&lastLeader!==0&&leader!==lastLeader)changes++;
+    if(leader===0&&e.a+e.b>0&&prevDiff!==0&&e.k!=='undo')ties++;
+    if(leader!==0)lastLeader=leader;
+    if(diff>big[0].m)big[0]={m:diff,e};
+    if(-diff>big[1].m)big[1]={m:-diff,e};
+    down[0]=Math.max(down[0],-diff);down[1]=Math.max(down[1],diff);
+    if(e.k!=='undo'&&e.d>0){
+      if(run.side===e.t)run.pts+=e.d;else run={side:e.t,pts:e.d,e};
+      if(run.pts>best.pts)best={side:run.side,pts:run.pts,e:run.e,end:e};
+      const key=e.ot?'o'+e.ot:'q'+e.q;(per[key]=per[key]||{p:[0,0],e})&&(per[key].p[e.t]+=e.d);
+    }
+    prevDiff=diff;
+  });
+  const wire=w>=0&&down[w]===0&&changes===0&&ties===0;
+  if(wire)out.push(pick([capf(N(w))+' led wire to wire.',capf(N(w))+' grabbed the lead early and never let go.']));
+  else if(changes>=3)out.push(pick(['Back and forth all game.','This one was a heavyweight fight.'])+' The lead changed hands '+changes+' times'+(ties?', with '+ties+(ties===1?' tie':' ties')+' along the way.':'.'));
+  else if(changes>=1)out.push('The lead changed hands '+(changes===1?'once':changes+' times')+(ties?', and it was tied '+(ties===1?'once':ties+' times')+'.':'.'));
+  else if(ties)out.push('It was tied '+(ties===1?'once':ties+' times')+' along the way.');
+  if(w>=0&&down[w]>=3)out.push(pick(['What a comeback. '+capf(N(w))+' was down '+down[w]+' and battled all the way back.',capf(N(w))+' erased a '+down[w]+' point deficit. Never count them out.']));
+  const bs=big[0].m>=big[1].m?0:1;
+  if(big[bs].m>=4&&!wire)out.push(capf(N(bs))+' built the biggest lead of the game, up '+big[bs].m+', '+whenOf(big[bs].e)+'.');
+  else if(big[bs].m>=4&&wire)out.push('The lead got as big as '+big[bs].m+'.');
+  let runPer='';
+  if(best.pts>=4){
+    const span=periodOf(best.e)!==periodOf(best.end);runPer=span?'':periodOf(best.e);
+    const where=(span?'starting in ':'in ')+periodOf(best.e);
+    out.push(pick(['The big swing was a '+best.pts+' to nothing run by '+N(best.side)+' '+where+'.','Momentum shift. '+capf(N(best.side))+' ripped off '+best.pts+' straight '+where+'.']));
+  }
+  if(w>=0&&!wire&&took[w]&&(changes||ties))out.push(pick(['The go-ahead bucket came from '+N(w)+' '+whenOf(took[w])+', and they never looked back.','The dagger. '+capf(N(w))+' took the lead for good '+whenOf(took[w])+'.']));
+  if(w>=0){
+    let top=null;Object.values(per).forEach(x=>{if(!top||x.p[w]>top.p[w])top=x;});
+    if(top&&top.p[w]>=5&&!(best.side===w&&runPer===periodOf(top.e)))out.push(capf(N(w))+' caught fire in '+periodOf(top.e)+', scoring '+top.p[w]+'.');
+  }
+  if(g.ot)out.push(g.ot===1?'It took overtime to settle this one.':'It took '+g.ot+' overtimes to settle this one. Instant classic.');
+  out.push(pick(['That is your recap. Great game, everybody.','And that is a wrap. Run it back next time.','Good game. See you next time on Hoop Clock.']));
+  return out.join(' ');
+}
+function playRecap(g){
+  const text=recapScript(g);
+  const cap=document.getElementById('recapCap');if(cap){cap.hidden=false;cap.textContent=text;}
+  audio();
+  if(!talk(text,1.04,0.94)&&!cap){/* no speech here: nothing else to show on the scoreboard */}
+  return text;
+}
+
 /* ---------- game history ---------- */
 let games=[];try{games=JSON.parse(localStorage.getItem('hoopclock.games')||'[]');}catch(e){games=[];}
 function saveGames(){try{localStorage.setItem('hoopclock.games',JSON.stringify(games.slice(0,60)));}catch(e){}}
@@ -1522,7 +1644,14 @@ function renderHist(){
   sum.innerHTML='<span class="big">'+esc(g.names[0])+' '+g.score[0]+' – '+g.score[1]+' '+esc(g.names[1])+'</span>'+
     '<span class="sub">'+res+(g.finished?resOT:'')+' · '+esc(fmtWhen(g.start))+' · '+lens+'</span>';
   body.appendChild(sum);
-  const leads=g.events.filter(e=>e.k==='lead').length,ties=g.events.filter(e=>e.k==='tie').length;
+  if(g.finished){
+    const ra=document.createElement('div');ra.className='hactions';
+    const rb=document.createElement('button');rb.className='ctl primary';rb.textContent=canTalk()?'Play recap':'Show recap';
+    rb.onclick=()=>playRecap(g);ra.appendChild(rb);body.appendChild(ra);
+  }
+  const cap=document.createElement('p');cap.className='recap-cap';cap.id='recapCap';cap.hidden=true;body.appendChild(cap);
+  let leads=0,ties=0;{let ll=0,pd=0;g.events.forEach(e=>{const d=e.a-e.b,ld=Math.sign(d);
+    if(ld!==0&&ll!==0&&ld!==ll)leads++;if(ld===0&&e.a+e.b>0&&pd!==0&&e.k!=='undo')ties++;if(ld!==0)ll=ld;pd=d;});}
   const st2=document.createElement('p');st2.className='note';
   st2.textContent=g.events.filter(e=>e.k!=='undo').length+' scores · '+leads+' lead change'+(leads===1?'':'s')+' · '+ties+' tie'+(ties===1?'':'s');
   body.appendChild(st2);
