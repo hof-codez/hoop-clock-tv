@@ -1,0 +1,37 @@
+name: Voice bank
+
+on:
+  push:
+    branches: [voice-lab]
+    paths: [tools/bank_lines.json, tools/render_bank.py, .github/workflows/voice-bank.yml]
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  bank:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - name: Install
+        run: |
+          sudo apt-get update -q && sudo apt-get install -y -q ffmpeg
+          pip install sherpa-onnx numpy
+      - name: Get the Kokoro model
+        run: |
+          curl -sSL -o k.tar.bz2 https://github.com/k2-fsa/sherpa-onnx/releases/download/tts-models/kokoro-multi-lang-v1_0.tar.bz2
+          tar xf k.tar.bz2
+          curl -sSL -o k8.tar.bz2 https://github.com/k2-fsa/sherpa-onnx/releases/download/tts-models/kokoro-int8-multi-lang-v1_1.tar.bz2 && tar xf k8.tar.bz2 && du -sh kokoro-int8-multi-lang-v1_1 && ls -la kokoro-int8-multi-lang-v1_1 > int8_listing.txt || true
+      - name: Render am_michael clip bank
+        run: python tools/render_bank.py kokoro-multi-lang-v1_0 tools/bank_lines.json 16 bank
+      - name: Save results to a branch
+        run: |
+          mkdir -p outbank && cp bank/vox_kokoro.json outbank/ && cp int8_listing.txt outbank/ 2>/dev/null || true
+          du -sh kokoro-int8-multi-lang-v1_1 > outbank/int8_size.txt 2>/dev/null || true
+          git config user.name "Hoop Clock voice lab"; git config user.email "actions@users.noreply.github.com"
+          git checkout --orphan voice-bank-results; git rm -rfq --cached . || true
+          git add outbank; git commit -qm "Kokoro clip bank (am_michael)"; git push -f origin voice-bank-results
