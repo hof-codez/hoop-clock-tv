@@ -1,0 +1,32 @@
+{
+ "arch": "X64",
+ "files": [
+  "LICENSE",
+  "README.md",
+  "date-zh.fst",
+  "dict",
+  "espeak-ng-data",
+  "lexicon-gb-en.txt",
+  "lexicon-us-en.txt",
+  "lexicon-zh.txt",
+  "model.onnx",
+  "number-zh.fst",
+  "phone-zh.fst",
+  "tokens.txt",
+  "voices.bin"
+ ],
+ "timing": [
+  {
+   "threads": 1,
+   "audio_sec": 15.97,
+   "compute_sec": 16.8,
+   "rtf": 1.052
+  },
+  {
+   "threads": 2,
+   "audio_sec": 15.97,
+   "compute_sec": 9.29,
+   "rtf": 0.582
+  }
+ ]
+}
