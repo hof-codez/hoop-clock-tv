@@ -14,7 +14,7 @@ tts = sherpa_onnx.OfflineTts(sherpa_onnx.OfflineTtsConfig(model=sherpa_onnx.Offl
 lines = json.load(open(LINES)); out = {}
 for k, text in lines.items():
     fast = k.startswith("n") and k[1:].isdigit()
-    a = tts.generate(text, sid=SID, speed=1.12 if fast else 1.0)
+    a = tts.generate(text, sid=SID, speed=1.12 if fast else (1.07 if k[:2] in ("a_","p_","r_") else 1.0))
     x = np.array(a.samples, dtype=np.float32); sr = a.sample_rate
     # trim silence at both ends
     env = np.abs(x) > 0.01
