@@ -1120,7 +1120,8 @@ function buildSetup(){
     if(window.HoopApp.kokoroStatus){
       const k=kStatus();const ks=document.createElement('div');ks.className='row';
       const sp=k.rtf>0?' · makes 1 second of speech in '+k.rtf.toFixed(1)+' s':'';
-      ks.innerHTML='<span class="lbl">Built-in Kokoro voice</span><span class="note" style="margin:0">'+esc((k.state||'off')+(k.msg&&k.msg!==k.state?' · '+k.msg:'')+sp)+'</span>';
+      const er=(k.err?' · last error: '+k.err:'')+(kokoroFailed?' · recaps switched to the TV voice ('+kokoroFailed+')':'');
+      ks.innerHTML='<span class="lbl">Built-in Kokoro voice</span><span class="note" style="margin:0">'+esc((k.state||'off')+(k.msg&&k.msg!==k.state?' · '+k.msg:'')+sp+er)+'</span>';
       gr.appendChild(ks);
     }
     ts.innerHTML='<span class="lbl">TV voice status</span><span class="note" style="margin:0">'+esc(ttsStatusText()||(nativeReady()?'ready':'not ready'))+'</span>';
@@ -1419,6 +1420,7 @@ function line(keys,text,opt){
 /* ---------- built-in Kokoro voice (TV app 2.0+) ---------- */
 function kStatus(){try{return JSON.parse(window.HoopApp.kokoroStatus()||'{}');}catch(e){return {};}}
 function kReady(){try{return !!(window.HoopApp&&window.HoopApp.kokoroStatus)&&kStatus().state==='ready';}catch(e){return false;}}
+let kokoroFailed='',kWatch=null;
 function kokoroOn(){return curVox()==='v4'&&kReady();}
 /* player names in the Kokoro voice, made once on the TV and kept */
 let nameClips={};try{nameClips=JSON.parse(localStorage.getItem('hoopclock.nameclips')||'{}');}catch(e){nameClips={};}
@@ -1466,7 +1468,13 @@ function applyNarrator(){
 }
 function talk(text,rate,pitch){
   if(!cfg.voice)return false;
-  if(kokoroOn()){try{stopVoice();window.HoopApp.kokoroSpeak(text,rate||1.0);markBusy(speechSecs(text,rate)*Math.max(1,kStatus().rtf||1)+0.6);return true;}catch(e){}}
+  if(kokoroOn()&&!kokoroFailed){try{
+    stopVoice();window.HoopApp.kokoroSpeak(text,rate||1.0);markBusy(speechSecs(text,rate)*Math.max(1,kStatus().rtf||1)+0.6);
+    /* if the built-in voice has not made a sound in 4 seconds, use the TV voice instead */
+    clearTimeout(kWatch);
+    kWatch=setTimeout(()=>{const k=kStatus();if(!(k.played>0)){kokoroFailed=k.err||'no sound after 4 seconds';try{window.HoopApp.kokoroStop();}catch(e){}
+      if(nativeReady()){try{const H=window.HoopApp;H.stop();applyNarrator();H.speak(text,rate||1.0);markBusy(speechSecs(text,rate));}catch(e){}}}},4000);
+    return true;}catch(e){}}
   if(nativeReady()){try{const H=window.HoopApp;stopVoice();markBusy(speechSecs(text,rate));applyNarrator();if(H.setPitch)H.setPitch(pitch||1.0);H.speak(text,rate||1.0);return true;}catch(e){}}
   if(hasNative())return false;   /* inside the TV app, only the TV voice; the browser engine there can be silent */
   if(synth){try{synth.cancel();speakBrowser(text,rate||1.0);return true;}catch(e){}}

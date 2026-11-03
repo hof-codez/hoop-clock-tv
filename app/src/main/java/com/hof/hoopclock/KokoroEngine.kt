@@ -28,6 +28,8 @@ object KokoroEngine {
     @Volatile var state = "off"
     @Volatile var message = ""
     @Volatile var lastRtf = 0f
+    @Volatile var lastError = ""
+    @Volatile var played = 0L
 
     private var tts: OfflineTts? = null
     private val lock = Any()
@@ -86,6 +88,7 @@ object KokoroEngine {
         val t = tts ?: return false
         stop()
         val my = session.incrementAndGet()
+        played = 0L; lastError = ""
         val q = LinkedBlockingQueue<FloatArray>()
         val sentences = text.split(Regex("(?<=[.!?])\\s+")).map { it.trim() }.filter { it.isNotEmpty() }
         Thread {
@@ -98,15 +101,16 @@ object KokoroEngine {
                     if (a.samples.isNotEmpty()) lastRtf = dt / (a.samples.size.toFloat() / a.sampleRate)
                     q.put(a.samples)
                 }
-            } catch (_: Throwable) {
+            } catch (e: Throwable) {
+                lastError = "generate: " + (e.message ?: e.toString()).take(160)
             } finally {
                 q.put(FloatArray(0))
             }
         }.start()
         Thread {
             val sr = t.sampleRate()
-            val minBuf = AudioTrack.getMinBufferSize(sr, AudioFormat.CHANNEL_OUT_MONO, AudioFormat.ENCODING_PCM_FLOAT)
-            val tr = AudioTrack.Builder()
+            val minBuf = AudioTrack.getMinBufferSize(sr, AudioFormat.CHANNEL_OUT_MONO, AudioFormat.ENCODING_PCM_16BIT)
+            val tr = try { AudioTrack.Builder()
                 .setAudioAttributes(
                     AudioAttributes.Builder()
                         .setUsage(AudioAttributes.USAGE_MEDIA)
@@ -115,25 +119,29 @@ object KokoroEngine {
                 )
                 .setAudioFormat(
                     AudioFormat.Builder()
-                        .setEncoding(AudioFormat.ENCODING_PCM_FLOAT)
+                        .setEncoding(AudioFormat.ENCODING_PCM_16BIT)
                         .setSampleRate(sr)
                         .setChannelMask(AudioFormat.CHANNEL_OUT_MONO)
                         .build()
                 )
-                .setBufferSizeInBytes(maxOf(minBuf, sr * 4))
+                .setBufferSizeInBytes(maxOf(minBuf, sr * 2))
                 .setTransferMode(AudioTrack.MODE_STREAM)
                 .build()
+            } catch (e: Throwable) { lastError = "audio: " + (e.message ?: e.toString()).take(160); return@Thread }
             track = tr
             try {
                 tr.play()
                 while (session.get() == my) {
                     val chunk = q.take()
                     if (chunk.isEmpty()) break
-                    for (i in chunk.indices) chunk[i] = (chunk[i] * 0.9f).coerceIn(-1f, 1f)
-                    tr.write(chunk, 0, chunk.size, AudioTrack.WRITE_BLOCKING)
+                    val pcm = ShortArray(chunk.size) { i -> ((chunk[i] * 0.9f).coerceIn(-1f, 1f) * 32767f).toInt().toShort() }
+                    val n = tr.write(pcm, 0, pcm.size)
+                    if (n < 0) { lastError = "audio write error $n"; break }
+                    played += n
                 }
                 if (session.get() == my) Thread.sleep(400)
-            } catch (_: Throwable) {
+            } catch (e: Throwable) {
+                lastError = "play: " + (e.message ?: e.toString()).take(160)
             } finally {
                 try { tr.stop() } catch (_: Throwable) {}
                 try { tr.release() } catch (_: Throwable) {}

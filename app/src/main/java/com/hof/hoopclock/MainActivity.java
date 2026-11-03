@@ -221,6 +221,8 @@ public class MainActivity extends Activity {
                 o.put("state", KokoroEngine.INSTANCE.getState());
                 o.put("msg", KokoroEngine.INSTANCE.getMessage());
                 o.put("rtf", (double) KokoroEngine.INSTANCE.getLastRtf());
+                o.put("err", KokoroEngine.INSTANCE.getLastError());
+                o.put("played", KokoroEngine.INSTANCE.getPlayed());
                 return o.toString();
             } catch (Exception e) {
                 return "{\"state\":\"error\"}";
