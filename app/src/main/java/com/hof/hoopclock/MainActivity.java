@@ -36,6 +36,8 @@ public class MainActivity extends Activity {
     private WebView web;
     private boolean usingLocal = false;
     private long lastBackPress = 0;
+    private Updater updater;
+    private boolean checkedUpdate = false;
     private TextToSpeech tts;
     private volatile boolean ttsOk = false;
 
@@ -75,11 +77,17 @@ public class MainActivity extends Activity {
             }
 
             @Override
+            public void onPageFinished(WebView view, String url) {
+                if (!checkedUpdate) { checkedUpdate = true; updater.check(false); }
+            }
+
+            @Override
             public boolean shouldOverrideUrlLoading(WebView view, WebResourceRequest request) {
                 return false;
             }
         });
 
+        updater = new Updater(this, js -> runOnUiThread(() -> web.evaluateJavascript(js, null)));
         setContentView(web);
         // Load the built-in Kokoro voice in the background.
         KokoroEngine.INSTANCE.loadAsync(getApplicationContext());
@@ -155,6 +163,15 @@ public class MainActivity extends Activity {
     }
 
     private class AppBridge {
+        @JavascriptInterface
+        public String appVersion() { return updater.installedName(); }
+
+        @JavascriptInterface
+        public void checkUpdate() { updater.check(true); }
+
+        @JavascriptInterface
+        public void installUpdate() { updater.install(); }
+
         @JavascriptInterface
         public String ttsStatus() {
             return ttsInfo;

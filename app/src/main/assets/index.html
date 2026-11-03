@@ -155,6 +155,9 @@ button:focus-visible,button.kb:focus,input:focus,select:focus{outline:4px solid 
   font-size:clamp(14px,2.5vh,24px);padding:.15em .8em;width:10ch;min-width:0}
 .saved{display:flex;flex-wrap:wrap;gap:8px}
 .saved .chip{display:inline-flex;align-items:center;gap:.4em}
+.upd{display:flex;align-items:center;gap:14px;flex-wrap:wrap;justify-content:center;background:var(--panel);
+  border:2px solid var(--focus);border-radius:10px;padding:8px 16px;font-size:clamp(14px,2.4vh,22px)}
+.upd:not([hidden])~.hint,.upd:not([hidden])~.brand-foot{display:none}
 .modes .brand-foot{color:var(--muted);font-size:clamp(11px,1.7vh,16px);letter-spacing:.08em}
 .modes .brand-foot b{color:var(--fg);font-weight:700}
 .mode-row{display:grid;grid-template-columns:1fr 1fr;gap:3vw;width:100%;max-width:1150px}
@@ -372,6 +375,10 @@ body.timer .glabel{font-size:clamp(16px,3.4vh,34px)}
     <button class="ctl" id="bTrain">Training</button>
     <button class="ctl" id="bHist">Game history</button>
     <button class="ctl" id="bExit" hidden>Exit app</button>
+  </div>
+  <div class="upd" id="upd" hidden>
+    <span id="updText">Update available</span>
+    <button class="ctl primary" id="updGo">Install update</button>
   </div>
   <div class="hint">Arrows move, OK picks. Start game resets the score.</div>
   <div class="brand-foot">Built by <b>HofCodez</b> · Build 2026.10.28</div>
@@ -1126,6 +1133,13 @@ function buildSetup(){
     }
     ts.innerHTML='<span class="lbl">TV voice status</span><span class="note" style="margin:0">'+esc(ttsStatusText()||(nativeReady()?'ready':'not ready'))+'</span>';
     gr.appendChild(ts);
+  }
+  if(window.HoopApp&&window.HoopApp.checkUpdate){
+    const uv=document.createElement('div');uv.className='row';
+    let ver='';try{ver=window.HoopApp.appVersion();}catch(e){}
+    uv.innerHTML='<span class="lbl">App version '+esc(ver)+'</span><button class="tog" id="updCheck">Check for updates</button>';
+    uv.querySelector('button').onclick=()=>{$('updCheck').textContent='Checking…';window.HoopApp.checkUpdate();};
+    gr.appendChild(uv);
   }
   const NV=narratorList();
   if(NV.length){
@@ -1902,6 +1916,21 @@ function renderHist(){
 }
 $('bHist').onclick=openHist;
 $('histBack').onclick=histBack;
+
+/* ---------- app updates (TV app 2.2+) ---------- */
+window.hoopUpdateAvailable=function(ver){
+  $('upd').hidden=false;$('updText').textContent='A new version of Hoop Clock is ready'+(ver?' ('+ver+')':'')+'.';
+  $('updGo').hidden=false;$('updGo').textContent='Install update';
+  if($('updCheck'))$('updCheck').textContent='Update available. See the home screen.';
+};
+window.hoopUpdateProgress=function(pct,msg){
+  if($('updCheck')&&!$('sheet').hidden){$('updCheck').textContent=msg||('Downloading '+pct+'%');}
+  $('upd').hidden=false;
+  $('updText').textContent=msg||('Downloading update… '+pct+'%');
+  $('updGo').hidden=pct>=0&&pct<100;
+  if(pct===-1)$('updGo').textContent='Try again';
+};
+$('updGo').onclick=()=>{try{window.HoopApp.installUpdate();$('updText').textContent='Starting download…';}catch(e){}};
 
 /* ---------- player names ---------- */
 let nameEditing=null;

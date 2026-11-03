@@ -100,7 +100,9 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
+          echo "{\"versionCode\": $(( ${{ github.run_number }} + 1000 )), \"versionName\": \"2.2.${{ github.run_number }}\"}" > version.json
+          cat version.json
           gh release delete latest --yes --cleanup-tag || true
-          gh release create latest hoop-clock-tv.apk \
+          gh release create latest hoop-clock-tv.apk version.json \
             --title "Hoop Clock TV, build ${{ github.run_number }}" \
             --notes "Built from ${{ github.sha }}"
