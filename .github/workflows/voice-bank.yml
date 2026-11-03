@@ -20,7 +20,7 @@ jobs:
       - name: Install
         run: |
           sudo apt-get update -q && sudo apt-get install -y -q ffmpeg
-          pip install sherpa-onnx numpy
+          pip install 'sherpa-onnx<2' numpy
       - name: Get the Kokoro model
         run: |
           curl -sSL -o k.tar.bz2 https://github.com/k2-fsa/sherpa-onnx/releases/download/tts-models/kokoro-multi-lang-v1_0.tar.bz2
