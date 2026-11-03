@@ -3,7 +3,7 @@ name: Engine probe
 on:
   push:
     branches: [voice-lab]
-    paths: [tools/probe.py, tools/probe2.py, .github/workflows/probe.yml]
+    paths: [tools/probe.py, tools/probe2.py, tools/probe3.py, .github/workflows/probe.yml]
   workflow_dispatch:
 
 permissions:
@@ -35,7 +35,7 @@ jobs:
       - name: Name test
         run: |
           mkdir -p out
-          python tools/probe2.py kokoro-multi-lang-v1_0 out > out/log.txt 2>&1 || echo "exit $?" >> out/log.txt
+          python tools/probe3.py kokoro-multi-lang-v1_0 > out/log.txt 2>&1 || echo "exit $?" >> out/log.txt
       - name: Android engine files
         if: false
         run: |
